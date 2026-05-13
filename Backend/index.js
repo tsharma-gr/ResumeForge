@@ -17,7 +17,6 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static folders
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/generated-pdfs', express.static(path.join(__dirname, 'generated-pdfs')));
 
 // Routes
 app.use('/api/resume', resumeRoutes);

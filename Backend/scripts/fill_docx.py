@@ -33,42 +33,34 @@ def set_font(run, size=10, bold=False, italic=False):
     run.font.all_caps = False
 
 def format_location(location):
-    """Extract city and country from full address"""
+    """Extract county and country only, removing city and postal code"""
     if not location:
         return ''
     
-    # Remove common address components and keep only city and country
     location = location.strip()
     
-    # Split by comma and take last parts (usually city, country format)
-    if ',' in location:
-        parts = [p.strip() for p in location.split(',')]
-        # Take last two parts (city, country) or just last part if only two
-        if len(parts) >= 2:
-            return ', '.join(parts[-2:])
-        elif len(parts) == 1:
-            return parts[0]
+    # Regex to identify UK postal codes (roughly)
+    import re
+    postcode_pattern = r'\b([A-Z]{1,2}[0-9][A-Z0-9]? [0-9][A-Z]{2})\b'
     
-    # If no comma, try to extract city and country from address
-    # Remove street numbers, apartment numbers, etc.
-    words = location.split()
-    city_country_words = []
+    # Split by comma
+    parts = [p.strip() for p in location.split(',')]
     
-    for word in words:
-        # Skip common street/address indicators
-        if any(indicator in word.lower() for indicator in ['street', 'road', 'avenue', 'lane', 'drive', 'boulevard', 'apt', 'suite', 'unit', '#']):
+    cleaned_parts = []
+    for part in parts:
+        # Skip parts that look like postal codes
+        if re.search(postcode_pattern, part.upper()) or re.search(r'\b[A-Z][0-9][A-Z0-9]?\b', part.upper()):
             continue
-        # Keep words that look like city or country (usually longer words)
-        if len(word) > 2 and not word.isdigit():
-            city_country_words.append(word)
+        # Skip parts that look like street addresses (already handled by AI usually, but for safety)
+        if any(indicator in part.lower() for indicator in ['street', 'road', 'avenue', 'lane', 'drive', 'apt', 'unit', '#']):
+            continue
+        cleaned_parts.append(part)
     
-    if city_country_words:
-        return ', '.join(city_country_words[-2:])  # Take last 2 meaningful words
-    elif words:
-        # Fallback: return last word if it looks like a city
-        return words[-1]
-    
-    return location.title()
+    if not cleaned_parts:
+        return location.title()
+
+    # Return ONLY the last part (e.g., just "Berkshire" instead of "Reading, Berkshire")
+    return cleaned_parts[-1]
 
 def fill_resume(template_path, output_path, data):
     if not os.path.exists(template_path):
@@ -391,76 +383,70 @@ def fill_resume(template_path, output_path, data):
             last_element.addnext(p._element)
             last_element = p._element
             
-            # 1. Short Summary & Responsibilities
-            summary = job.get('summary', '')
+            # 1. Summary (Paragraphs)
+            sum_paras = job.get('summary_paragraphs', [])
+            if not sum_paras and job.get('summary'): # Fallback for old data
+                sum_paras = [job.get('summary')]
+                
             period_val = job.get('period', '').lower()
             is_current = "current" in period_val or "present" in period_val
-            resps = job.get('responsibilities', [])
-            
-            if is_totaco:
-                # Totaco style: Everything as bulleted paragraphs
-                if summary:
-                    p_sum = doc.add_paragraph(style='Normal')
-                    p_sum.paragraph_format.left_indent = Pt(36)
-                    p_sum.paragraph_format.first_line_indent = Pt(-18)
-                    p_sum.paragraph_format.space_after = Pt(6)
-                    run = p_sum.add_run(f"•\t{summary}")
-                    set_font(run, 11)
+            header_keywords = ['key responsibilities', 'key responsibility', 'main duties', 'responsibilities', 'duties']
+            import re
+
+            for para_text in sum_paras:
+                if not para_text: continue
+                # Check if the header was buried in the summary and remove it to avoid duplication
+                clean_para = para_text
+                for kw in header_keywords:
+                    if kw.lower() in clean_para.lower():
+                        clean_para = re.sub(f'(?i){kw}[:\s]*$', '', clean_para).strip()
+                        clean_para = re.sub(f'^(?i){kw}[:\s]*', '', clean_para).strip()
+                
+                if clean_para:
+                    p_sum = doc.add_paragraph(clean_para, style='Normal')
+                    if is_totaco or not (is_current and not is_totaco): # standard bullet for totaco or non-current
+                         p_sum.paragraph_format.left_indent = Pt(36)
+                         p_sum.paragraph_format.first_line_indent = Pt(-18)
+                         # Set text again to include the bullet character correctly
+                         p_sum.text = f"•\t{clean_para}"
+                    else:
+                         p_sum.paragraph_format.space_after = Pt(8)
+                         p_sum.paragraph_format.line_spacing = 1.15
+                    
+                    for r in p_sum.runs: set_font(r, 11)
                     last_element.addnext(p_sum._element)
                     last_element = p_sum._element
-                
-                if resps:
+
+            # 2. Responsibilities (Bullet Points)
+            resps = job.get('responsibilities', [])
+            resp_header = job.get('responsibilities_header', '').strip()
+            
+            if resp_header:
+                p_h = doc.add_paragraph(style='Normal')
+                p_h.paragraph_format.left_indent = Pt(36)
+                p_h.paragraph_format.first_line_indent = Pt(-18)
+                p_h.paragraph_format.space_after = Pt(2)
+                h_text = resp_header if resp_header.endswith(':') else f"{resp_header}:"
+                run = p_h.add_run(f"•\t{h_text}")
+                set_font(run, 11, True) # Bold header
+                last_element.addnext(p_h._element)
+                last_element = p_h._element
+
+            if resps:
+                for resp in resps:
+                    if not resp.strip(): continue
+                    # Skip if the resp is just the header again
+                    if resp.lower().rstrip(':') in header_keywords:
+                        continue
+                        
                     p_resp = doc.add_paragraph(style='Normal')
                     p_resp.paragraph_format.left_indent = Pt(36)
                     p_resp.paragraph_format.first_line_indent = Pt(-18)
                     p_resp.paragraph_format.space_after = Pt(6)
-                    
-                    resp_text = ", ".join([r.strip() for r in resps if r.strip()])
-                    run = p_resp.add_run(f"•\tKey responsibilities included: {resp_text}")
+                    run = p_resp.add_run(f"•\t{resp.strip()}")
                     set_font(run, 11)
                     last_element.addnext(p_resp._element)
                     last_element = p_resp._element
-            else:
-                # Original logic for other templates
-                if summary:
-                    if is_current:
-                        # Current Job: Summary as Paragraph (2-3 lines style)
-                        p_sum = doc.add_paragraph(summary, style='Normal')
-                        p_sum.paragraph_format.space_after = Pt(8)
-                        p_sum.paragraph_format.line_spacing = 1.15
-                        for r in p_sum.runs: set_font(r, 11)
-                        last_element.addnext(p_sum._element)
-                        last_element = p_sum._element
-                        
-                        # Add "Key responsibilities:" bold heading
-                        p_key = doc.add_paragraph()
-                        run = p_key.add_run("Key responsibilities:")
-                        set_font(run, 11, True) # Bold
-                        p_key.paragraph_format.space_after = Pt(4)
-                        last_element.addnext(p_key._element)
-                        last_element = p_key._element
-                    else:
-                        # Past Jobs: Summary as First Bullet Point
-                        p_sum = doc.add_paragraph(style='Normal')
-                        p_sum.paragraph_format.left_indent = Pt(36)
-                        p_sum.paragraph_format.first_line_indent = Pt(-18)
-                        p_sum.paragraph_format.space_after = Pt(6)
-                        run = p_sum.add_run(f"•\t{summary}")
-                        set_font(run, 11)
-                        last_element.addnext(p_sum._element)
-                        last_element = p_sum._element
-                
-                if resps:
-                    for resp in resps:
-                        if not resp.strip(): continue
-                        p_resp = doc.add_paragraph(style='Normal')
-                        p_resp.paragraph_format.left_indent = Pt(36)
-                        p_resp.paragraph_format.first_line_indent = Pt(-18)
-                        p_resp.paragraph_format.space_after = Pt(6)
-                        run = p_resp.add_run(f"•\t{resp.strip()}")
-                        set_font(run, 11)
-                        last_element.addnext(p_resp._element)
-                        last_element = p_resp._element
             
             # 3. Projects Section (Optional)
             projects = job.get('projects', [])
@@ -670,7 +656,7 @@ def fill_resume(template_path, output_path, data):
                 if len(parts) >= 3:
                     year = parts[0].strip()
                     degree = parts[1].strip()
-                    institution = parts[2].strip().title()
+                    institution = parts[2].strip()
                     result = f"{year} - {degree} - {institution}"
                     all_edu.append(result)
                 elif len(parts) == 2:
@@ -683,7 +669,7 @@ def fill_resume(template_path, output_path, data):
                     else:
                         # Degree - Institution format (no year)
                         degree = parts[0].strip()
-                        institution = parts[1].strip().title()
+                        institution = parts[1].strip()
                         result = f"{degree} - {institution}"
                         all_edu.append(result)
                 else:

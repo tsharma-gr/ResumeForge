@@ -2,10 +2,22 @@ const path = require('path');
 const fs = require('fs-extra');
 const { extractTextFromPDF, extractTextFromDOCX, cleanText } = require('../utils/textExtractor');
 const { parseResume } = require('../services/ai/resumeParser');
-const db = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const { exec } = require('child_process');
 const env = require('../config/env');
+
+// In-memory cache to store resumes temporarily without a persistent DB
+const resumeCache = new Map();
+
+// Cleanup old cache entries every hour (optional but good practice)
+setInterval(() => {
+  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  for (const [id, entry] of resumeCache.entries()) {
+    if (entry.createdAt < oneHourAgo) {
+      resumeCache.delete(id);
+    }
+  }
+}, 60 * 60 * 1000);
 
 const uploadAndParse = async (req, res) => {
   try {
@@ -26,15 +38,17 @@ const uploadAndParse = async (req, res) => {
     const cleanedText = cleanText(rawText);
     const parsedData = await parseResume(cleanedText);
 
-    const resumeId = uuidv4();
-    const resumeEntry = {
-      id: resumeId,
-      originalName: req.file.originalname,
-      parsedData,
-      createdAt: new Date().toISOString(),
-    };
+    // IMMEDIATE CLEANUP: Delete the uploaded file after text extraction
+    fs.remove(filePath).catch(err => console.error('Error deleting upload:', err));
 
-    db.get('resumes').push(resumeEntry).write();
+    const resumeId = uuidv4();
+    
+    // Store in memory only
+    resumeCache.set(resumeId, {
+      id: resumeId,
+      data: parsedData,
+      createdAt: Date.now()
+    });
 
     res.json({
       success: true,
@@ -43,6 +57,7 @@ const uploadAndParse = async (req, res) => {
     });
   } catch (error) {
     console.error('Upload and Parse Error:', error);
+    if (req.file) fs.remove(req.file.path).catch(() => {});
     res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 };
@@ -52,17 +67,15 @@ const updateResume = async (req, res) => {
     const { id } = req.params;
     const { parsedData } = req.body;
 
-    const resume = db.get('resumes').find({ id }).value();
-    if (!resume) {
-      return res.status(404).json({ error: 'Resume not found' });
+    const entry = resumeCache.get(id);
+    if (!entry) {
+      return res.status(404).json({ error: 'Resume not found in session' });
     }
 
-    db.get('resumes')
-      .find({ id })
-      .assign({ parsedData, updatedAt: new Date().toISOString() })
-      .write();
+    entry.data = parsedData;
+    resumeCache.set(id, entry);
 
-    res.json({ success: true, message: 'Resume updated successfully' });
+    res.json({ success: true, message: 'Resume updated in memory' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -71,13 +84,13 @@ const updateResume = async (req, res) => {
 const getResume = async (req, res) => {
   try {
     const { id } = req.params;
-    const resume = db.get('resumes').find({ id }).value();
+    const entry = resumeCache.get(id);
     
-    if (!resume) {
-      return res.status(404).json({ error: 'Resume not found' });
+    if (!entry) {
+      return res.status(404).json({ error: 'Resume session expired or not found' });
     }
 
-    res.json({ success: true, data: resume });
+    res.json({ success: true, data: entry });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -86,10 +99,19 @@ const getResume = async (req, res) => {
 const generateResumeDocx = async (req, res) => {
   try {
     const { id, templateId } = req.body;
-    const resume = db.get('resumes').find({ id }).value();
+    let { data } = req.body;
     
-    if (!resume) {
-      return res.status(404).json({ error: 'Resume not found' });
+    if (!data && id) {
+      const entry = resumeCache.get(id);
+      if (entry) {
+        data = entry.data;
+      }
+    }
+
+    if (!data) {
+      return res.status(400).json({ 
+        error: 'No resume data provided and session not found'
+      });
     }
 
     const templateMap = {
@@ -103,36 +125,38 @@ const generateResumeDocx = async (req, res) => {
     const outputDir = path.join(__dirname, '../uploads/generated');
     await fs.ensureDir(outputDir);
     
-    const rawName = (resume.parsedData.personal_info.name || 'Resume').trim();
+    const personalInfo = data.personal_info || {};
+    const rawName = (personalInfo.name || 'Resume').trim();
     const nameParts = rawName.split(/\s+/);
     let displayName = rawName;
     if (nameParts.length >= 2) {
       displayName = `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
     }
     const downloadName = `CV of ${displayName}.docx`.replace(/[/\\?%*:|"<>]/g, '-');
-    const outputFileName = `resume_${id}_${Date.now()}.docx`;
+    
+    const outputId = uuidv4();
+    const outputFileName = `resume_${outputId}.docx`;
     const outputPath = path.join(outputDir, outputFileName);
     
-    const jsonData = JSON.stringify(resume.parsedData);
-    
-    // Command to run python script
     const scriptPath = path.join(__dirname, '../scripts/fill_docx.py');
-    
-    // Passing JSON via file to avoid shell escaping issues
-    const tempJsonPath = path.join(outputDir, `data_${id}.json`);
-    await fs.writeJson(tempJsonPath, resume.parsedData);
+    const tempJsonPath = path.join(outputDir, `data_${outputId}.json`);
+    await fs.writeJson(tempJsonPath, data);
     
     exec(`python "${scriptPath}" "${templatePath}" "${outputPath}" "${tempJsonPath}"`, (error, stdout, stderr) => {
       if (error) {
         console.error('Docx Generation Error:', error);
+        fs.remove(tempJsonPath).catch(() => {});
         return res.status(500).json({ error: 'Failed to generate docx' });
       }
       
       res.download(outputPath, downloadName, (err) => {
-        if (err) console.error('Download Error:', err);
-        // Cleanup
-        fs.remove(tempJsonPath).catch(console.error);
-        // fs.remove(outputPath).catch(console.error);
+        // IMMEDIATE CLEANUP: Delete both temp JSON and generated DOCX as soon as download is triggered
+        fs.remove(tempJsonPath).catch(() => {});
+        fs.remove(outputPath).catch(() => {});
+        
+        if (err) {
+          console.error('Download Error:', err);
+        }
       });
     });
 

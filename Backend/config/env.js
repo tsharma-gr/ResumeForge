@@ -11,7 +11,6 @@ module.exports = {
   MONGO_URI: process.env.MONGO_URI,
   STORAGE_MODE: process.env.STORAGE_MODE || 'json',
   UPLOAD_DIR: process.env.UPLOAD_DIR || 'uploads',
-  PDF_OUTPUT_DIR: process.env.PDF_OUTPUT_DIR || 'generated-pdfs',
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
   TEMPLATE_DIR: process.env.TEMPLATE_DIR || 'templates',
 };

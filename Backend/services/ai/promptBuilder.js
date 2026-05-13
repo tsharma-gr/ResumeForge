@@ -33,7 +33,8 @@ SCHEMA:
       "location": "string",
       "role": "string",
       "period": "string",
-      "summary": "string",
+      "summary_paragraphs": ["string"], // Extract EACH introductory paragraph as a separate string.
+      "responsibilities_header": "string", // If the CV uses a header like "Key Responsibilities", extract it here exactly. Otherwise leave empty.
       "responsibilities": ["string"], // Extract EACH bullet point separately
       "projects": ["string"], // Extract EACH project title and description as separate strings
       "reason_for_leaving": "string"
@@ -48,19 +49,23 @@ INSTRUCTIONS:
 - **1. COMPREHENSIVE WORK HISTORY (UNLIMITED)**: You MUST extract EVERY SINGLE job and company from the CV. If there are 15 companies, list all 15. There is NO limit here. Use the "comprehensive_work_history" key.
 - **2. EMPLOYMENT SUMMARY (LIMITED TO 5)**: ONLY this specific section is limited to the 5 most recent companies.
 - **3. VERBATIM EXTRACTION**: For the comprehensive history, you MUST copy-paste paragraphs and bullets VERBATIM. Each bullet point from the CV must be a separate item in the "responsibilities" or "projects" array.
-- **SUMMARY**: This field MUST contain the full, unedited introductory paragraph(s) for the role.
-- **RESPONSIBILITIES**: This array MUST contain every single bullet point from the CV that is not a project.
+- **ROLE**: This MUST be a short, professional job title (e.g., "Contracts Manager", "Electrician"). Aim for 1-5 words. If you find a list of services or tasks (like "Maintenance Surveys"), do NOT put them in the Role field; extract them as "summary_paragraphs" or "responsibilities".
+- **SUMMARY_PARAGRAPHS**: This array MUST contain EVERY introductory paragraph and any narrative list of services for the role, unedited. Do NOT skip any descriptive text.
+- **RESPONSIBILITIES_HEADER**: If the original CV uses a specific heading for the responsibilities (e.g., "Key Responsibilities"), extract it here.
+- **RESPONSIBILITIES**: This array MUST contain the job content that was presented as BULLET POINTS in the original CV. Preserve the exact number of bullet points.
 - **PROJECTS**: If the CV lists specific "Projects" or "Key Projects" under a job, extract them as separate strings in the "projects" array.
 - **4. DATE FORMAT**: "MMM-YYYY" (e.g., Jan-2024).
-- **5. EDUCATION & SKILLS FORMAT (OPTIONAL YEAR)**: Look for years ANYWHERE in the education entry (at beginning, middle, or end). If you find a year (4-digit number like 2005, 2010, etc.), extract it and format as "Year - Degree - Institution". If no year is found, format as "Degree - Institution".
-  - **QUALIFICATIONS**: Degrees, Diplomas, Apprenticeships. Look for years in formats like "University Name 2005", "2005 - Degree", "Degree (2005)", etc. Extract the year and reformat as "Year - Degree - Institution".
-  - **TRAINING**: Professional training courses. Same year extraction rules apply.
-  - **CERTIFICATIONS**: Specific certifications. Same year extraction rules apply.
-  - **AWARDS**: Professional awards (e.g., "Electrician of the year 2019").
-  - **TECHNICAL SKILLS**: Core job-related skills and software.
-  - **LICENSE**: Driving licenses.
-- **6. MANUAL FIELDS**: You MUST extract the candidate's **Name** and **Location** from the CV. However, do NOT extract Sector or RL ID—leave these two as empty strings.
-- **7. IGNORE**: References, Interests, Languages.
+- **5. EDUCATION & SKILLS FORMAT**: Capture EVERY educational entry, training course, and certification. Do NOT summarize or skip any details.
+  - **YEAR EXTRACTION**: Look for years (4-digit numbers like 2005, 2010) anywhere in the entry. 
+  - **FORMATTING**: Extract the year and reformat the entry as "Year - Qualification Name - Institution/Provider". If a grade or specific subjects are mentioned, include them (e.g., "2005 - BSc Hons Electrical Engineering (2:1) - University of London"). 
+  - **NO MISSING DATA**: If a candidate lists 10 different certificates or 5 different schools, list all of them.
+- **6. MANUAL FIELDS**: 
+  - **NAME**: Extract the candidate's full name.
+  - **LOCATION**: Extract ONLY a SINGLE geographic area: the **County** OR the **Country** (e.g., "Berkshire" or "UK"). Do NOT include city names (like "Reading" or "London"), postal codes, or street addresses. If both are present, pick the County.
+  - **SECTOR/RL ID**: Leave these two as empty strings.
+- **7. PRESERVE STRUCTURE**: It is CRITICAL to match the structure of the original CV. If a section is in paragraphs, extract them into "summary_paragraphs". If it is bulleted, extract it into "responsibilities".
+- **8. NO MISSING DATA**: Do not summarize. Do not skip paragraphs. Every single line of text from the professional experience section MUST be extracted. If a job only has a company name and a list of tasks, put the tasks in "summary_paragraphs" or "responsibilities", NOT in the "role" field.
+- **9. IGNORE**: References, Interests, Languages.
 
 RESUME TEXT:
 ${text}
