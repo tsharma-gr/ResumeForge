@@ -401,8 +401,8 @@ def fill_resume(template_path, output_path, data):
                 clean_para = para_text
                 for kw in header_keywords:
                     if kw.lower() in clean_para.lower():
-                        clean_para = re.sub(rf'(?i){kw}[:\s]*$', '', clean_para).strip()
-                        clean_para = re.sub(rf'^(?i){kw}[:\s]*', '', clean_para).strip()
+                        clean_para = re.sub(rf'(?i){re.escape(kw)}[:\s]*$', '', clean_para).strip()
+                        clean_para = re.sub(rf'(?i)^{re.escape(kw)}[:\s]*', '', clean_para).strip()
                 
                 if clean_para:
                     p_sum = doc.add_paragraph(clean_para, style='Normal')
