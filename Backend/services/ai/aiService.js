@@ -13,15 +13,25 @@ const chatCompletion = async (prompt, options = {}) => {
     });
 
     const content = response.choices[0].message.content;
-    console.log('Raw AI Response:', content);
+    const finishReason = response.choices[0].finish_reason;
+    console.log('AI Finish Reason:', finishReason);
+    
+    if (finishReason === 'length') {
+      console.warn('AI Response truncated due to token limit.');
+    }
+
+    console.log('Raw AI Response length:', content.length);
     
     // Try to parse JSON with better error handling
     let parsed;
     try {
       parsed = JSON.parse(content);
     } catch (parseError) {
-      console.error('JSON Parse Error:', parseError);
-      console.error('Content that failed to parse:', content);
+      console.error('JSON Parse Error:', parseError.message);
+      
+      if (finishReason === 'length') {
+        throw new Error('AI response was truncated due to length limits. The resume might be too long.');
+      }
       
       // Try to extract JSON from content if it's wrapped in code blocks
       const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
@@ -29,11 +39,11 @@ const chatCompletion = async (prompt, options = {}) => {
         try {
           parsed = JSON.parse(jsonMatch[1]);
         } catch (secondParseError) {
-          console.error('Second JSON Parse Error:', secondParseError);
-          throw new Error('Invalid JSON response from AI service');
+          console.error('Second JSON Parse Error:', secondParseError.message);
+          throw new Error('Invalid JSON response from AI service (parsing failed after extraction)');
         }
       } else {
-        throw new Error('Invalid JSON response from AI service');
+        throw new Error('Invalid JSON response from AI service: ' + parseError.message);
       }
     }
     
