@@ -16,7 +16,7 @@ const extractTextFromDOCX = async (filePath) => {
 const cleanText = (text) => {
   return text
     .replace(/\r\n/g, '\n')
-    .replace(/[^\x20-\x7E\n]/g, '') // Remove non-printable characters
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove only control characters, keep Unicode
     .replace(/\n\s*\n/g, '\n\n') // Remove excessive newlines
     .trim();
 };
