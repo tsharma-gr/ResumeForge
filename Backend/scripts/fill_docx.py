@@ -248,6 +248,7 @@ def fill_resume(template_path, output_path, data):
         # 1. Group by Company (Case-insensitive)
         grouped = {}
         for job in employment_summary:
+            if not isinstance(job, dict): continue
             company_raw = job.get('company_name', '').strip()
             if not company_raw: continue
             company_key = company_raw.lower()
@@ -346,10 +347,11 @@ def fill_resume(template_path, output_path, data):
         last_element = spacer_p._element
         # Use Career History exactly as provided by AI (already sorted and complete)
         for job in career_history:
+            if not isinstance(job, dict): continue
             company = job.get('company', '').strip()
             role = job.get('role', '').strip()
             period_raw = job.get('period', '').strip().replace(' to ', ' - ')
-            summary = job.get('summary', '').strip()
+            summary = job.get('summary_paragraphs', []) or [job.get('summary', '')]
             resps = job.get('responsibilities', [])
 
             # Skip entries that are clearly empty or likely misclassified References
@@ -399,8 +401,8 @@ def fill_resume(template_path, output_path, data):
                 clean_para = para_text
                 for kw in header_keywords:
                     if kw.lower() in clean_para.lower():
-                        clean_para = re.sub(f'(?i){kw}[:\s]*$', '', clean_para).strip()
-                        clean_para = re.sub(f'^(?i){kw}[:\s]*', '', clean_para).strip()
+                        clean_para = re.sub(rf'(?i){kw}[:\s]*$', '', clean_para).strip()
+                        clean_para = re.sub(rf'^(?i){kw}[:\s]*', '', clean_para).strip()
                 
                 if clean_para:
                     p_sum = doc.add_paragraph(clean_para, style='Normal')
@@ -701,11 +703,13 @@ if __name__ == "__main__":
     o_path = sys.argv[2]
     json_file = sys.argv[3]
     try:
-        with open(json_file, 'r') as f:
+        with open(json_file, 'r', encoding='utf-8') as f:
             j_data = json.load(f)
         fill_resume(t_path, o_path, j_data)
         print(f"Successfully generated docx at {o_path}")
     except Exception as e:
-        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        print(f"Error: {str(e)}", file=sys.stderr)
         sys.exit(1)
 
