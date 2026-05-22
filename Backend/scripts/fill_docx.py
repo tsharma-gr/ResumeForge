@@ -406,14 +406,8 @@ def fill_resume(template_path, output_path, data):
                 
                 if clean_para:
                     p_sum = doc.add_paragraph(clean_para, style='Normal')
-                    if is_totaco or not (is_current and not is_totaco): # standard bullet for totaco or non-current
-                         p_sum.paragraph_format.left_indent = Pt(36)
-                         p_sum.paragraph_format.first_line_indent = Pt(-18)
-                         # Set text again to include the bullet character correctly
-                         p_sum.text = f"•\t{clean_para}"
-                    else:
-                         p_sum.paragraph_format.space_after = Pt(8)
-                         p_sum.paragraph_format.line_spacing = 1.15
+                    p_sum.paragraph_format.space_after = Pt(8)
+                    p_sum.paragraph_format.line_spacing = 1.15
                     
                     for r in p_sum.runs: set_font(r, 11)
                     last_element.addnext(p_sum._element)
