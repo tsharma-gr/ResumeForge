@@ -117,7 +117,8 @@ const generateResumeDocx = async (req, res) => {
     const templateMap = {
       'totaco': 'CV of Totaco Template.docx',
       'humres': 'CV of Humres.docx',
-      'huntek': 'CV of HunTek.docx'
+      'huntek': 'CV of HunTek.docx',
+      'strata': 'Strata - CVF Template.docx'
     };
 
     const templateFileName = templateMap[templateId] || 'CV of Totaco Template.docx';
