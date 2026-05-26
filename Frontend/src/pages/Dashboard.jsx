@@ -156,7 +156,7 @@ const Dashboard = () => {
                 <div className="mb-8 w-full flex justify-between items-center">
                   <h2 className="text-3xl font-black text-slate-900">Live Preview</h2>
                   <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200">
-                    {['totaco', 'humres', 'huntek'].map((t) => (
+                    {['totaco', 'humres', 'huntek', 'strata'].map((t) => (
                       <button
                         key={t}
                         onClick={() => setSelectedTemplate(t)}
@@ -194,7 +194,7 @@ const Dashboard = () => {
                   <div className="mt-12 pt-8 border-t border-slate-100">
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Quick Switch</h4>
                     <div className="grid grid-cols-1 gap-2">
-                       {['totaco', 'humres', 'huntek'].map((t) => (
+                       {['totaco', 'humres', 'huntek', 'strata'].map((t) => (
                          <button 
                            key={t}
                            onClick={() => handleDownload(t)}
