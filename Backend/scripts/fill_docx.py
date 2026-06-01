@@ -215,6 +215,7 @@ def fill_resume(template_path, output_path, data):
             # Insert profile text
             p = doc.add_paragraph(profile)
             p.paragraph_format.line_spacing = 1.15
+            p.paragraph_format.alignment = 3 # JUSTIFY
             for r in p.runs: set_font(r, 11)
             spacer._element.addnext(p._element)
 
