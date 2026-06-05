@@ -3,18 +3,21 @@ import React from 'react';
 const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
   // Normalize data for the template
   const personalInfo = data.personal_info || {};
-  const careerHistory = data.career_history || [];
+  const ensureArray = (val) => Array.isArray(val) ? val : (val ? [val] : []);
+
+  const careerHistory = ensureArray(data.career_history);
   const edSkills = data.education_and_skills || {};
   
   const isHunTek = templateId === 'huntek';
   const isHumres = templateId === 'humres';
   
-  const education = edSkills.qualifications || [];
-  const training = edSkills.training || [];
-  const certifications = edSkills.certifications || [];
-  const awards = edSkills.awards || [];
-  const skills = edSkills.technical_skills || [];
-  const license = edSkills.license || [];
+  const education = ensureArray(edSkills.qualifications);
+  const training = ensureArray(edSkills.training);
+  const certifications = ensureArray(edSkills.certifications);
+  const awards = ensureArray(edSkills.awards);
+  const skills = ensureArray(edSkills.technical_skills);
+  const license = ensureArray(edSkills.license);
+  const employmentSummary = data.employment_summary ? ensureArray(data.employment_summary) : careerHistory;
 
   return (
     <div className="w-[800px] min-h-[1100px] bg-white p-[50px] shadow-2xl mx-auto text-[11pt] font-serif leading-relaxed text-slate-900 border border-slate-200">
@@ -83,7 +86,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
             </tr>
           </thead>
           <tbody>
-            {(data.employment_summary || careerHistory).map((job, index) => (
+            {employmentSummary.map((job, index) => (
               <tr key={index} className="border-b border-slate-100 last:border-0">
                 <td className="py-3 px-3 text-[9.5pt]">{job.from || job.period?.split('-')[0]}</td>
                 <td className="py-3 px-3 text-[9.5pt]">{job.to || job.period?.split('-')[1]}</td>
@@ -122,7 +125,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
                   )
                 )}
                 <ul className="space-y-1">
-                  {(job.responsibilities || []).map((resp, i) => (
+                  {ensureArray(job.responsibilities).map((resp, i) => (
                     <li key={i} className="flex gap-2 text-slate-700 ml-4 text-[11pt]">
                       <span>•</span>
                       <span>{resp}</span>
