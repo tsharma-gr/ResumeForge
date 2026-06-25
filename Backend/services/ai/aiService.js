@@ -1,5 +1,6 @@
 const openai = require('../../config/openai');
 const env = require('../../config/env');
+const { jsonrepair } = require('jsonrepair');
 
 const chatCompletion = async (prompt, options = {}) => {
   try {
@@ -14,6 +15,12 @@ const chatCompletion = async (prompt, options = {}) => {
 
     const content = response.choices[0].message.content;
     const finishReason = response.choices[0].finish_reason;
+    const usage = response.usage;
+    
+    if (usage) {
+      console.log(`Token Usage - Prompt: ${usage.prompt_tokens}, Completion: ${usage.completion_tokens}, Total: ${usage.total_tokens}`);
+    }
+
     console.log('AI Finish Reason:', finishReason);
     
     if (finishReason === 'length') {
@@ -29,21 +36,32 @@ const chatCompletion = async (prompt, options = {}) => {
     } catch (parseError) {
       console.error('JSON Parse Error:', parseError.message);
       
+      let repairSuccess = false;
       if (finishReason === 'length') {
-        throw new Error('AI response was truncated due to length limits. The resume might be too long.');
+        try {
+          console.log('Attempting to repair truncated JSON...');
+          parsed = JSON.parse(jsonrepair(content));
+          console.log('Successfully repaired truncated JSON.');
+          repairSuccess = true;
+        } catch (repairError) {
+          console.error('JSON Repair Error:', repairError.message);
+          throw new Error('AI response was truncated due to length limits. The resume might be too long and could not be repaired.');
+        }
       }
       
-      // Try to extract JSON from content if it's wrapped in code blocks
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-      if (jsonMatch) {
-        try {
-          parsed = JSON.parse(jsonMatch[1]);
-        } catch (secondParseError) {
-          console.error('Second JSON Parse Error:', secondParseError.message);
-          throw new Error('Invalid JSON response from AI service (parsing failed after extraction)');
+      if (!repairSuccess) {
+        // Try to extract JSON from content if it's wrapped in code blocks
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          try {
+            parsed = JSON.parse(jsonMatch[1]);
+          } catch (secondParseError) {
+            console.error('Second JSON Parse Error:', secondParseError.message);
+            throw new Error('Invalid JSON response from AI service (parsing failed after extraction)');
+          }
+        } else {
+          throw new Error('Invalid JSON response from AI service: ' + parseError.message);
         }
-      } else {
-        throw new Error('Invalid JSON response from AI service: ' + parseError.message);
       }
     }
     
