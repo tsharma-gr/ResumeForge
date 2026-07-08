@@ -6,6 +6,7 @@ const resumeController = require('../controllers/resumeController');
 
 // Resume routes
 router.post('/upload', upload.single('file'), resumeController.uploadAndParse);
+router.get('/progress/:jobId', resumeController.streamProgress);
 router.put('/:id', resumeController.updateResume);
 router.get('/:id', resumeController.getResume);
 

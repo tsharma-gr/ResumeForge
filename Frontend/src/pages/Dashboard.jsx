@@ -6,7 +6,7 @@ import { resumeService } from '../services/api';
 import Button from '../components/ui/Button';
 import { Download, FileText, RefreshCcw, ChevronLeft } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Dashboard = () => {
   const [step, setStep] = useState(1);
@@ -15,10 +15,10 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState('totaco');
 
-  const handleUpload = async (file) => {
+  const handleUpload = async (file, jobId) => {
     setLoading(true);
     try {
-      const response = await resumeService.upload(file);
+      const response = await resumeService.upload(file, jobId);
       setResumeData(response.data);
       setResumeId(response.resumeId);
       setStep(2);
@@ -113,16 +113,26 @@ const Dashboard = () => {
       </nav>
 
       {step === 1 && (
-        <>
-          <section className="hero">
-            <div className="eyebrow">✨ AI-Powered Resume Builder</div>
-            <h1 className="headline">Create your <span className="accent">premium resume.</span><br />Powered by AI.</h1>
-            <p className="subhead">Upload your existing CV or fill in your details manually. Our AI will automatically parse, format, and generate a pixel-perfect, ATS-friendly document in seconds.</p>
-          </section>
-          <div className="card-wrap">
+        <motion.div layout transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }} className="relative z-10 w-full flex flex-col items-center justify-center">
+          <AnimatePresence mode="popLayout">
+            {!loading && (
+              <motion.section 
+                key="hero"
+                initial={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                className="hero w-full"
+              >
+                <div className="eyebrow">✨ AI-Powered Resume Builder</div>
+                <h1 className="headline">Create your <span className="accent">premium resume.</span><br />Powered by AI.</h1>
+                <p className="subhead">Upload your existing CV or fill in your details manually. Our AI will automatically parse, format, and generate a pixel-perfect, ATS-friendly document in seconds.</p>
+              </motion.section>
+            )}
+          </AnimatePresence>
+          <motion.div layout className="card-wrap w-full transition-transform duration-500 ease-in-out" style={{ transform: loading ? 'translateY(-2vh)' : 'none' }}>
             <FileUpload onUpload={handleUpload} loading={loading} />
-          </div>
-        </>
+          </motion.div>
+        </motion.div>
       )}
 
       {step === 2 && (

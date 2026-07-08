@@ -5,6 +5,7 @@ const { parseResume } = require('../services/ai/resumeParser');
 const { v4: uuidv4 } = require('uuid');
 const { exec } = require('child_process');
 const env = require('../config/env');
+const progressEmitter = require('../utils/progressEmitter');
 
 // In-memory cache to store resumes temporarily without a persistent DB
 const resumeCache = new Map();
@@ -25,21 +26,36 @@ const uploadAndParse = async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    const jobId = req.body.jobId || req.query.jobId;
+
+    const onProgress = (message) => {
+      if (jobId) {
+        progressEmitter.emit(jobId, message);
+      }
+    };
+
     const filePath = req.file.path;
     const ext = path.extname(req.file.originalname).toLowerCase();
     
     let rawText = '';
+    onProgress('Extracting text from document...');
     if (ext === '.pdf') {
       rawText = await extractTextFromPDF(filePath);
     } else if (ext === '.docx') {
       rawText = await extractTextFromDOCX(filePath);
     }
 
+    onProgress('Cleaning text...');
     const cleanedText = cleanText(rawText);
-    const parsedData = await parseResume(cleanedText);
+    
+    const parsedData = await parseResume(cleanedText, onProgress);
 
     // IMMEDIATE CLEANUP: Delete the uploaded file after text extraction
     fs.remove(filePath).catch(err => console.error('Error deleting upload:', err));
+    
+    if (jobId) {
+      progressEmitter.end(jobId);
+    }
 
     const resumeId = uuidv4();
     
@@ -57,9 +73,30 @@ const uploadAndParse = async (req, res) => {
     });
   } catch (error) {
     console.error('Upload and Parse Error:', error);
+    const jobId = req.body.jobId || req.query.jobId;
+    if (jobId) {
+      progressEmitter.emit(jobId, `Error: ${error.message}`);
+      progressEmitter.end(jobId);
+    }
     if (req.file) fs.remove(req.file.path).catch(() => {});
     res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
+};
+
+const streamProgress = (req, res) => {
+  const { jobId } = req.params;
+  
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+
+  progressEmitter.addClient(jobId, res);
+
+  req.on('close', () => {
+    progressEmitter.removeClient(jobId);
+  });
 };
 
 const updateResume = async (req, res) => {
@@ -169,6 +206,7 @@ const generateResumeDocx = async (req, res) => {
 
 module.exports = {
   uploadAndParse,
+  streamProgress,
   updateResume,
   getResume,
   generateResumeDocx,

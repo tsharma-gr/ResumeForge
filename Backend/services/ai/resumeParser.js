@@ -104,14 +104,17 @@ const mergeParsedResults = (results) => {
   return merged;
 };
 
-const parseResume = async (extractedText) => {
+const parseResume = async (extractedText, onProgress = () => {}) => {
   const chunks = chunkText(extractedText, 10000); // 10000 characters hits the perfect sweet spot
   
+  onProgress(`Total Chunks: ${chunks.length}`);
   const parsedResults = [];
   
   // Process sequentially to avoid API rate limits
   for (let i = 0; i < chunks.length; i++) {
-    console.log(`Processing chunk ${i + 1} of ${chunks.length} (length: ${chunks[i].length})`);
+    const msg = `Processing chunk ${i + 1} of ${chunks.length}`;
+    console.log(msg);
+    onProgress(msg);
     
     let promptPrefix = i > 0 
       ? `THIS IS CONTINUATION CHUNK ${i+1} OF A LARGE RESUME. Focus primarily on extracting the remaining work history, education, and skills. Feel free to leave personal_info blank if not present.\n\n` 
@@ -122,8 +125,11 @@ const parseResume = async (extractedText) => {
     parsedResults.push(result);
   }
   
+  onProgress('Merging results...');
   const finalResult = mergeParsedResults(parsedResults);
-  console.log(`Merged results. Total jobs extracted: ${finalResult.comprehensive_work_history?.length || 0}`);
+  const finalMsg = `Extraction complete. Extracted ${finalResult.comprehensive_work_history?.length || 0} jobs.`;
+  console.log(finalMsg);
+  onProgress(finalMsg);
   
   return finalResult;
 };
