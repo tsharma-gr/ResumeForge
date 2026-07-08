@@ -90,10 +90,12 @@ const ResumeForm = ({ initialData, onUpdate, loading }) => {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {/* Personal Information */}
-      <section className="bg-white rounded-3xl shadow-sm p-8 border border-slate-100">
-        <div className="flex items-center mb-6 text-blue-600">
-          <User className="mr-2" size={24} />
-          <h2 className="text-xl font-bold text-slate-800">Personal Information</h2>
+      <section className="bg-white rounded-[24px] shadow-sm p-8 border border-[#ECE9F7] hover:shadow-md transition-shadow duration-300">
+        <div className="flex items-center mb-8">
+          <div className="w-10 h-10 bg-[#F3E8FF] text-[#7C3AED] rounded-xl flex items-center justify-center mr-4">
+            <User size={20} strokeWidth={2.5} />
+          </div>
+          <h2 className="text-xl font-bold text-[#0F0F1A] tracking-tight">Personal Information</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Input label="Full Name" {...register('personal_info.name')} />
@@ -103,10 +105,9 @@ const ResumeForm = ({ initialData, onUpdate, loading }) => {
         </div>
       </section>
 
-
-      <div className="flex justify-center pt-12">
-        <Button type="submit" size="lg" className="px-16 h-14 text-lg" loading={loading}>
-          <Save size={20} className="mr-2" /> Save Changes & Preview
+      <div className="flex justify-center pt-8 pb-12">
+        <Button type="submit" className="select-btn h-[54px] shadow-xl shadow-[rgba(124,58,237,0.25)] text-[16px] px-12" loading={loading}>
+          <Save size={20} className="mr-2" strokeWidth={2.5} /> Save Changes & Preview
         </Button>
       </div>
     </form>

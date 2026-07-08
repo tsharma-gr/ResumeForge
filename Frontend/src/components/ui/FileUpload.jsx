@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { Upload as UploadIcon, FileText, X, CheckCircle, Loader2 } from 'lucide-react';
+import { FileText, X, CheckCircle, Loader2 } from 'lucide-react';
 import Button from './Button';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const FileUpload = ({ onUpload, loading, error }) => {
   const [file, setFile] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleFileChange = (e) => {
@@ -16,10 +17,21 @@ const FileUpload = ({ onUpload, loading, error }) => {
 
   const handleDrop = (e) => {
     e.preventDefault();
+    setDragActive(false);
     const selectedFile = e.dataTransfer.files[0];
     if (selectedFile) {
       setFile(selectedFile);
     }
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setDragActive(false);
   };
 
   const clearFile = () => {
@@ -28,14 +40,8 @@ const FileUpload = ({ onUpload, loading, error }) => {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleDrop}
-        className={`relative group border-2 border-dashed rounded-2xl p-12 transition-all duration-300 flex flex-col items-center justify-center
-          ${file ? 'border-primary-500 bg-primary-50/30' : 'border-slate-200 hover:border-primary-400 hover:bg-slate-50'}
-        `}
-      >
+    <>
+      <div className="upload-card relative">
         <input
           type="file"
           ref={fileInputRef}
@@ -47,55 +53,67 @@ const FileUpload = ({ onUpload, loading, error }) => {
         <AnimatePresence mode="wait">
           {!file ? (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              <div className="w-16 h-16 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                <UploadIcon size={32} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">Upload your resume</h3>
-              <p className="text-slate-500 mb-6">Supports PDF and DOCX files (max 5MB)</p>
-              <Button onClick={() => fileInputRef.current.click()}>
-                Select File
-              </Button>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="w-full flex flex-col items-center"
-            >
-              <div className="w-full bg-white border border-slate-100 shadow-premium rounded-xl p-4 flex items-center mb-6">
-                <div className="w-10 h-10 bg-primary-50 text-primary-600 rounded-lg flex items-center justify-center mr-4">
-                  <FileText size={24} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate">{file.name}</p>
-                  <p className="text-xs text-slate-500">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
-                </div>
-                <button
-                  onClick={clearFile}
-                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <X size={20} />
+              <div
+                className={`drop-zone ${dragActive ? 'drag-active' : ''}`}
+                onDragOver={handleDragEnter}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current.click()}
+              >
+                <div className="upload-icon-wrap"><span className="upload-icon">⭱</span></div>
+                <div className="drop-title">Upload your resume</div>
+                <div className="drop-sub">Drag &amp; drop, or supports PDF and DOCX files (max 5MB)</div>
+                <button className="select-btn" onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }}>
+                  📎 Select File
                 </button>
               </div>
 
-              <div className="flex gap-3">
+
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full flex flex-col items-center py-6"
+            >
+              <div className="w-full bg-[#FBF9FF] border-2 border-[#EBE4FA] rounded-[20px] p-5 flex items-center mb-8 shadow-sm transition-all hover:shadow-md hover:border-[#D6C6F5]">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] text-white rounded-2xl flex items-center justify-center mr-5 shadow-lg shadow-[rgba(124,58,237,0.3)] shrink-0">
+                  <FileText size={24} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0 pr-4">
+                  <p className="text-[15px] font-bold text-[#0F0F1A] truncate tracking-tight">{file.name}</p>
+                  <p className="text-[13px] font-medium text-[#7A7A94] mt-0.5">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                </div>
+                <button
+                  onClick={clearFile}
+                  className="w-9 h-9 flex items-center justify-center text-[#7A7A94] hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                >
+                  <X size={20} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-center gap-4 w-full mt-2">
                 <Button 
                   onClick={() => onUpload(file)} 
                   loading={loading}
                   icon={loading ? null : CheckCircle}
+                  className="!mt-0 select-btn shadow-xl shadow-[rgba(124,58,237,0.25)] h-[50px]"
                 >
                   {loading ? 'Analyzing with AI...' : 'Parse Resume'}
                 </Button>
                 {!loading && (
-                  <Button variant="secondary" onClick={clearFile}>
+                  <button 
+                    onClick={clearFile}
+                    className="h-[50px] px-8 rounded-xl border-2 border-[#ECE9F7] bg-white text-[#4B4A63] font-bold text-[14px] hover:border-[#7C3AED] hover:text-[#7C3AED] hover:bg-[#F3E8FF] transition-all flex items-center justify-center"
+                  >
                     Cancel
-                  </Button>
+                  </button>
                 )}
               </div>
             </motion.div>
@@ -103,20 +121,28 @@ const FileUpload = ({ onUpload, loading, error }) => {
         </AnimatePresence>
 
         {loading && (
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl flex flex-col items-center justify-center z-10">
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] rounded-2xl flex flex-col items-center justify-center z-10" style={{ margin: '14px' }}>
             <Loader2 className="w-10 h-10 text-primary-600 animate-spin mb-4" />
             <p className="text-lg font-bold text-slate-800">Processing with AI</p>
-            <p className="text-sm text-slate-500">This may take a few seconds...</p>
+            <p className="text-sm text-slate-500 max-w-xs text-center mt-2">
+              Please wait. Normal resumes take ~5 seconds, but massive 25-page resumes can take up to 60 seconds to fully process.
+            </p>
           </div>
         )}
       </div>
 
+      <div className="trust-row">
+        <div className="trust-item"><span className="ico">🔒</span> Private &amp; secure</div>
+        <div className="trust-item"><span className="ico">⚡</span> Ready in under 30 seconds</div>
+        <div className="trust-item"><span className="ico">✓</span> ATS-optimized formatting</div>
+      </div>
+      
       {error && (
         <p className="mt-4 text-center text-sm font-medium text-red-500">
           {error}
         </p>
       )}
-    </div>
+    </>
   );
 };
 
