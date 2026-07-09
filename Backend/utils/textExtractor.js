@@ -1,6 +1,7 @@
 const fs = require('fs-extra');
 const pdf = require('pdf-parse');
 const mammoth = require('mammoth');
+const WordExtractor = require('word-extractor');
 
 const extractTextFromPDF = async (filePath) => {
   const dataBuffer = await fs.readFile(filePath);
@@ -11,6 +12,12 @@ const extractTextFromPDF = async (filePath) => {
 const extractTextFromDOCX = async (filePath) => {
   const result = await mammoth.extractRawText({ path: filePath });
   return result.value;
+};
+
+const extractTextFromDOC = async (filePath) => {
+  const extractor = new WordExtractor();
+  const extracted = await extractor.extract(filePath);
+  return extracted.getBody();
 };
 
 const cleanText = (text) => {
@@ -24,5 +31,6 @@ const cleanText = (text) => {
 module.exports = {
   extractTextFromPDF,
   extractTextFromDOCX,
+  extractTextFromDOC,
   cleanText,
 };

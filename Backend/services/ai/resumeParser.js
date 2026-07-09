@@ -59,6 +59,21 @@ const mergeParsedResults = (results) => {
   for (let i = 1; i < results.length; i++) {
     const nextResult = results[i];
     
+    // Merge personal_info safely (don't overwrite with empty)
+    if (nextResult.personal_info) {
+      if (!merged.personal_info) merged.personal_info = {};
+      for (const key of Object.keys(nextResult.personal_info)) {
+        if (!merged.personal_info[key] && nextResult.personal_info[key]) {
+          merged.personal_info[key] = nextResult.personal_info[key];
+        }
+      }
+    }
+    
+    // Merge personal_profile safely
+    if (!merged.personal_profile && nextResult.personal_profile) {
+      merged.personal_profile = nextResult.personal_profile;
+    }
+    
     // Merge comprehensive work history
     if (nextResult.comprehensive_work_history && Array.isArray(nextResult.comprehensive_work_history)) {
       merged.comprehensive_work_history.push(...nextResult.comprehensive_work_history);

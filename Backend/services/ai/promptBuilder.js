@@ -5,8 +5,8 @@ You are an expert ATS-optimized resume parser. Your task is to extract structure
 SCHEMA:
 {
   "personal_info": {
-    "name": "", // Leave empty for manual user entry
-    "location": "", // Leave empty for manual user entry
+    "name": "string", // Extract candidate's full name
+    "location": "string", // Extract only County or Country
     "sector": "", // Leave empty for manual user entry
     "rl_id": "" // Leave empty for manual user entry
   },

@@ -64,7 +64,7 @@ const FileUpload = ({ onUpload, loading, error }) => {
           type="file"
           ref={fileInputRef}
           onChange={handleFileChange}
-          accept=".pdf,.docx"
+          accept=".pdf,.docx,.doc"
           className="hidden"
         />
 
@@ -164,7 +164,7 @@ const FileUpload = ({ onUpload, loading, error }) => {
               >
                 <div className="upload-icon-wrap"><span className="upload-icon">⭱</span></div>
                 <div className="drop-title">Upload your resume</div>
-                <div className="drop-sub">Drag &amp; drop, or supports PDF and DOCX files (max 20MB)</div>
+                <div className="drop-sub">Drag &amp; drop, or supports PDF, DOC, and DOCX files (max 20MB)</div>
                 <button className="select-btn" onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }}>
                   📎 Select File
                 </button>

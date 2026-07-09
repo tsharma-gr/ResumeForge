@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs-extra');
-const { extractTextFromPDF, extractTextFromDOCX, cleanText } = require('../utils/textExtractor');
+const { extractTextFromPDF, extractTextFromDOCX, extractTextFromDOC, cleanText } = require('../utils/textExtractor');
 const { parseResume } = require('../services/ai/resumeParser');
 const { v4: uuidv4 } = require('uuid');
 const { exec } = require('child_process');
@@ -43,6 +43,8 @@ const uploadAndParse = async (req, res) => {
       rawText = await extractTextFromPDF(filePath);
     } else if (ext === '.docx') {
       rawText = await extractTextFromDOCX(filePath);
+    } else if (ext === '.doc') {
+      rawText = await extractTextFromDOC(filePath);
     }
 
     onProgress('Cleaning text...');
