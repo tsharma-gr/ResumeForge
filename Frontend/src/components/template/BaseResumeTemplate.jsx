@@ -106,24 +106,23 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
         <div className="space-y-8">
           {careerHistory.map((job, index) => {
             const isPresent = job.period?.toLowerCase().includes('current') || job.period?.toLowerCase().includes('present');
+            const summaryParas = ensureArray(job.summary_paragraphs?.length ? job.summary_paragraphs : job.summary);
+            const projects = ensureArray(job.projects);
+            
             return (
               <div key={index}>
                 <div className="font-bold text-[11pt] mb-2 border-b border-slate-100 pb-1">
                   {job.company?.toUpperCase()} {job.location && `– ${job.location}`} - {job.role} ({job.period})
                 </div>
-                {isPresent ? (
-                  <>
-                    <p className="mb-3 text-slate-700 text-[11pt] leading-relaxed">{job.summary}</p>
-                    <div className="font-bold text-[11pt] mb-2">Key responsibilities:</div>
-                  </>
-                ) : (
-                  job.summary && (
-                    <div className="flex gap-2 text-slate-700 mb-1 ml-4 text-[11pt]">
-                      <span>•</span>
-                      <span>{job.summary}</span>
-                    </div>
-                  )
+                
+                {summaryParas.map((para, i) => (
+                  <p key={i} className="mb-3 text-slate-700 text-[11pt] leading-relaxed">{para}</p>
+                ))}
+                
+                {job.responsibilities_header && (
+                  <div className="font-bold text-[11pt] mt-2 mb-2">{job.responsibilities_header}</div>
                 )}
+                
                 <ul className="space-y-1">
                   {ensureArray(job.responsibilities).map((resp, i) => (
                     <li key={i} className="flex gap-2 text-slate-700 ml-4 text-[11pt]">
@@ -131,6 +130,21 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
                       <span>{resp}</span>
                     </li>
                   ))}
+                  
+                  {projects.length > 0 && (
+                    <li className="mt-4 text-slate-700 ml-4 text-[11pt]">
+                      <div className="font-bold mb-2">Projects</div>
+                      <ul className="space-y-1">
+                        {projects.map((proj, i) => (
+                          <li key={i} className="flex gap-2 text-slate-700 ml-4 text-[11pt]">
+                            <span>•</span>
+                            <span>{proj}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  )}
+                  
                   {job.reason_for_leaving && (
                     <li className="mt-2 font-medium ml-4 text-[11pt]">
                       • Reason for leaving - {job.reason_for_leaving}
