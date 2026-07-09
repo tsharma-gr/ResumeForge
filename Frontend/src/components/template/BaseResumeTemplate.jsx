@@ -5,7 +5,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
   const personalInfo = data.personal_info || {};
   const ensureArray = (val) => Array.isArray(val) ? val : (val ? [val] : []);
 
-  const careerHistory = ensureArray(data.career_history);
+  const careerHistory = ensureArray(data.comprehensive_work_history || data.career_history);
   const edSkills = data.education_and_skills || {};
   
   const isHunTek = templateId === 'huntek';
