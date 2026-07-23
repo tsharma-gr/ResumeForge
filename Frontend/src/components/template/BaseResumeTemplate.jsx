@@ -27,12 +27,12 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
       </div>
 
       {/* Basic Info Table */}
-      <div className="grid grid-cols-2 gap-y-4 mb-10 border-b border-slate-200 pb-8">
+      <div className="grid grid-cols-2 gap-y-4 mb-6 border-b border-slate-200 pb-6">
         {isHunTek ? (
           <>
             <div className="col-span-2 grid grid-cols-[100px_1fr] items-center">
               <span className="font-bold">Name:</span>
-              <span className="text-slate-700 font-bold uppercase tracking-wider">{personalInfo.name} {personalInfo.rl_id}</span>
+              <span className="text-slate-700 font-bold tracking-wider">{personalInfo.name} {personalInfo.rl_id}</span>
             </div>
             <div className="col-span-2 grid grid-cols-[100px_1fr] items-center">
               <span className="font-bold">Location:</span>
@@ -43,7 +43,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
           <>
             <div className="grid grid-cols-[100px_1fr] items-center">
               <span className="font-bold">Name:</span>
-              <span className="text-slate-700 uppercase">{personalInfo.name}</span>
+              <span className="text-slate-700">{personalInfo.name}</span>
             </div>
             <div className="grid grid-cols-[100px_1fr] items-center">
               <span className="font-bold">Location:</span>
@@ -62,7 +62,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
       </div>
 
       {/* Personal Profile Section */}
-      <div className="mb-10">
+      <div className="mb-6">
         <div className="bg-black text-white px-4 py-1 font-bold uppercase tracking-widest text-[10pt] mb-4">
           Personal Profile
         </div>
@@ -72,7 +72,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
       </div>
 
       {/* Employment Summary Table */}
-      <div className="mb-10">
+      <div className="mb-6">
         <div className="bg-black text-white px-4 py-1 font-bold uppercase tracking-widest text-[10pt] mb-4">
           Summary of Employment
         </div>
@@ -99,15 +99,15 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
       </div>
 
       {/* Career History */}
-      <div className="mb-10">
+      <div className="mb-6">
         <div className="bg-black text-white px-4 py-1 font-bold uppercase tracking-widest text-[10pt] mb-4">
           Career History
         </div>
         <div className="space-y-8">
           {careerHistory.map((job, index) => {
             const isPresent = job.period?.toLowerCase().includes('current') || job.period?.toLowerCase().includes('present');
-            const summaryParas = ensureArray(job.summary_paragraphs?.length ? job.summary_paragraphs : job.summary);
-            const projects = ensureArray(job.projects);
+            const summaryParas = ensureArray(job.summary_paragraphs?.length ? job.summary_paragraphs : job.summary).filter(p => p && p.trim() !== '');
+            const projects = ensureArray(job.projects).filter(p => p && p.trim() !== '');
             
             return (
               <div key={index}>
@@ -124,7 +124,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
                 )}
                 
                 <ul className="space-y-1">
-                  {ensureArray(job.responsibilities).map((resp, i) => (
+                  {ensureArray(job.responsibilities).filter(r => r && r.trim() !== '').map((resp, i) => (
                     <li key={i} className="flex gap-2 text-slate-700 ml-4 text-[11pt]">
                       <span>•</span>
                       <span>{resp}</span>

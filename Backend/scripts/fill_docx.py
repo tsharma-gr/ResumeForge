@@ -59,8 +59,8 @@ def format_location(location):
     if not cleaned_parts:
         return location.title()
 
-    # Return ONLY the last part (e.g., just "Berkshire" instead of "Reading, Berkshire")
-    return cleaned_parts[-1]
+    # Join the cleaned parts back together to respect manual user edits (e.g., "City, Country")
+    return ', '.join(cleaned_parts)
 
 def fill_resume(template_path, output_path, data):
     if not os.path.exists(template_path):
@@ -207,17 +207,13 @@ def fill_resume(template_path, output_path, data):
                 # Set Main Heading Font for paragraph
                 for r in header_el.runs: set_font(r, 16, True)
 
-            # Add spacer first
-            spacer = doc.add_paragraph()
-            spacer.paragraph_format.space_after = Pt(8)
-            last_el.addnext(spacer._element)
-            
             # Insert profile text
             p = doc.add_paragraph(profile)
+            p.paragraph_format.space_before = Pt(8)
             p.paragraph_format.line_spacing = 1.15
             p.paragraph_format.alignment = 3 # JUSTIFY
             for r in p.runs: set_font(r, 11)
-            spacer._element.addnext(p._element)
+            last_el.addnext(p._element)
 
     # Fill Employment Summary Table
     emp_header, _ = find_section_header(['SUMMARY', 'EMPLOYMENT'])
@@ -246,40 +242,21 @@ def fill_resume(template_path, output_path, data):
         
         num_cols = len(summary_table.rows[0].cells)
         
-        # 1. Group by Company (Case-insensitive)
-        grouped = {}
+        # 1. Directly use the employment_summary list (it's already deduplicated and formatted in the backend)
+        processed_summary = []
         for job in employment_summary:
             if not isinstance(job, dict): continue
             company_raw = job.get('company_name', '').strip()
             if not company_raw: continue
-            company_key = company_raw.lower()
             
-            if company_key not in grouped:
-                grouped[company_key] = {
-                    'from': job.get('from', ''),
-                    'to': job.get('to', ''),
-                    'company_name': company_raw.title(),
-                    'position': job.get('position', ''),
-                }
-            else:
-                # Same company: merge tenure, keep latest position
-                try:
-                    cur_from = get_date_obj(job.get('from', ''))
-                    cur_to = get_date_obj(job.get('to', ''))
-                    existing_from = get_date_obj(grouped[company_key]['from'])
-                    existing_to = get_date_obj(grouped[company_key]['to'])
-                    
-                    if cur_from < existing_from:
-                        grouped[company_key]['from'] = job.get('from', '')
-                    if cur_to > existing_to:
-                        grouped[company_key]['to'] = job.get('to', '')
-                        grouped[company_key]['position'] = job.get('position', '')
-                except:
-                    pass
+            processed_summary.append({
+                'from': job.get('from', ''),
+                'to': job.get('to', ''),
+                'company_name': company_raw.title(),
+                'position': job.get('position', ''),
+            })
 
-        # 2. Sort and Limit to Top 5
-        processed_summary = list(grouped.values())
-        processed_summary.sort(key=lambda x: get_date_obj(x.get('from', '')), reverse=True)
+        # 2. Limit to Top 5
         processed_summary = processed_summary[:5]
 
         # 3. Fill Table
@@ -341,11 +318,6 @@ def fill_resume(template_path, output_path, data):
             for r in career_header_el.runs: set_font(r, 16, True)
 
         last_element = career_header_el._element
-        # Add a spacer paragraph after the header table
-        spacer_p = doc.add_paragraph()
-        spacer_p.paragraph_format.space_after = Pt(6)
-        last_element.addnext(spacer_p._element)
-        last_element = spacer_p._element
         # Use Career History exactly as provided by AI (already sorted and complete)
         for job in career_history:
             if not isinstance(job, dict): continue
@@ -489,11 +461,7 @@ def fill_resume(template_path, output_path, data):
 
 
 
-            
-            # Spacer
-            spacer = doc.add_paragraph()
-            last_element.addnext(spacer._element)
-            last_element = spacer._element
+
 
     # Fill Education & Skills
     ed_header_el, type = find_section_header(['EDUCATION'])
@@ -510,12 +478,6 @@ def fill_resume(template_path, output_path, data):
             for r in ed_header_el.runs: set_font(r, 16, True)
 
         last_element = ed_header_el._element
-        
-        # Add a spacer after the black header table
-        spacer_p = doc.add_paragraph()
-        spacer_p.paragraph_format.space_after = Pt(8)
-        last_element.addnext(spacer_p._element)
-        last_element = spacer_p._element
         
         # Cleanup: Remove existing redundant headers from the template to avoid duplication
         redundant_headers = [
@@ -535,7 +497,7 @@ def fill_resume(template_path, output_path, data):
         for p in reversed(doc.paragraphs):
             p_text = p.text.strip().lower()
             
-            # 1. Remove empty paragraphs at the very end of the document
+            # 1. Remove empty paragraphs at the very end of the document (safe cleanup)
             if not p_text and p == doc.paragraphs[-1]:
                 p._element.getparent().remove(p._element)
                 continue
