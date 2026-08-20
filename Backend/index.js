@@ -9,7 +9,10 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: env.CLIENT_URL,
+  origin: function (origin, callback) {
+    // Dynamically allow the requesting origin (perfect for Vercel/localhost)
+    callback(null, origin || '*');
+  },
   credentials: true
 }));
 app.use(bodyParser.json({ limit: '10mb' }));
