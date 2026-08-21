@@ -45,7 +45,8 @@ const chatCompletion = async (prompt, options = {}) => {
           repairSuccess = true;
         } catch (repairError) {
           console.error('JSON Repair Error:', repairError.message);
-          throw new Error('AI response was truncated due to length limits. The resume might be too long and could not be repaired.');
+          console.warn('AI response truncated and could not be repaired. Returning empty object for this chunk to prevent full crash.');
+          return {};
         }
       }
       
@@ -57,10 +58,13 @@ const chatCompletion = async (prompt, options = {}) => {
             parsed = JSON.parse(jsonMatch[1]);
           } catch (secondParseError) {
             console.error('Second JSON Parse Error:', secondParseError.message);
-            throw new Error('Invalid JSON response from AI service (parsing failed after extraction)');
+            console.warn('Invalid JSON in code block. Returning empty object.');
+            return {};
           }
         } else {
-          throw new Error('Invalid JSON response from AI service: ' + parseError.message);
+          console.error('Invalid JSON response from AI service: ' + parseError.message);
+          console.warn('Returning empty object to prevent full crash.');
+          return {};
         }
       }
     }
