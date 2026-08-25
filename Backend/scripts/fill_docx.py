@@ -13,9 +13,9 @@ def format_date(date_str):
         return 'Present'
     try:
         dt = date_parser.parse(date_str)
-        return dt.strftime('%b-%Y')
+        return dt.strftime('%b %Y')
     except:
-        return date_str
+        return date_str.replace('-', ' ')
 
 def get_date_obj(date_str):
     if not date_str or date_str.lower() in ['present', 'current', 'ongoing', 'now']:
@@ -252,7 +252,7 @@ def fill_resume(template_path, output_path, data):
             processed_summary.append({
                 'from': job.get('from', ''),
                 'to': job.get('to', ''),
-                'company_name': company_raw.title(),
+                'company_name': company_raw,
                 'position': job.get('position', ''),
             })
 
@@ -266,7 +266,7 @@ def fill_resume(template_path, output_path, data):
             
             job_from = format_date(job.get('from', ''))
             job_to = format_date(job.get('to', ''))
-            job_company = job.get('company_name', '').title()
+            job_company = job.get('company_name', '')
             job_pos = job.get('position', '')
 
             # Set column widths to prevent date wrapping
@@ -336,17 +336,19 @@ def fill_resume(template_path, output_path, data):
             p.paragraph_format.space_before = Pt(14)
             p.paragraph_format.space_after = Pt(2)
             
-            company = job.get('company', '').strip().title()
+            company = job.get('company', '').strip()
             location = job.get('location', '')
             role = job.get('role', '')
             
-            # Format period: "Mar-2021 - Jul-2024" -> "Mar 2021 - Jul 2024"
+            # Format period correctly using format_date helper
             if period_raw and period_raw != '()':
                 if ' - ' in period_raw:
                     p_parts = period_raw.split(' - ')
-                    period = f"{p_parts[0].strip().replace('-', ' ')} - {p_parts[1].strip().replace('-', ' ')}"
+                    part1 = format_date(p_parts[0].strip())
+                    part2 = format_date(p_parts[1].strip())
+                    period = f"{part1} - {part2}"
                 else:
-                    period = period_raw.replace('-', ' ')
+                    period = format_date(period_raw.strip())
                 duration_str = f" ({period})"
             else:
                 duration_str = ""
