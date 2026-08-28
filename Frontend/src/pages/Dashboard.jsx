@@ -25,7 +25,11 @@ const Dashboard = () => {
       toast.success('Resume parsed successfully!');
     } catch (err) {
       console.error(err);
-      toast.error('Failed to parse resume.');
+      if (err.response && err.response.status === 402) {
+        toast.error('The AI service ran out of balance. Please try again later or contact the admin.', { duration: 8000 });
+      } else {
+        toast.error('Failed to parse resume.');
+      }
     } finally {
       setLoading(false);
     }

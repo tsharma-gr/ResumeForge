@@ -81,6 +81,14 @@ const uploadAndParse = async (req, res) => {
       progressEmitter.end(jobId);
     }
     if (req.file) fs.remove(req.file.path).catch(() => {});
+    
+    if (error.message === 'AI_BALANCE_OUT' || error.message.includes('402')) {
+      return res.status(402).json({ 
+        error: 'AI_BALANCE_OUT', 
+        message: 'The AI service balance has run out. Please contact the administrator.' 
+      });
+    }
+    
     res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 };

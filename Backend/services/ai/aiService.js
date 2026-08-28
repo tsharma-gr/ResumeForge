@@ -77,6 +77,11 @@ const chatCompletion = async (prompt, options = {}) => {
     if (error.response) {
       console.error('OpenAI API Error:', error.response.data);
     }
+    
+    if (error.status === 402 || (error.message && error.message.includes('402'))) {
+      throw new Error('AI_BALANCE_OUT');
+    }
+    
     throw new Error('Failed to communicate with AI service: ' + error.message);
   }
 };
