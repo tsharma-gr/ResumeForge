@@ -26,7 +26,20 @@ const Dashboard = () => {
     } catch (err) {
       console.error(err);
       if (err.response && err.response.status === 402) {
-        toast.error('The AI service ran out of balance. Please try again later or contact the admin.', { duration: 8000 });
+        toast.custom((t) => (
+          <div className="bg-white border-2 border-red-100 p-5 rounded-[24px] shadow-2xl shadow-[rgba(239,68,68,0.15)] flex items-start gap-4 w-[380px] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-red-400 to-red-600"></div>
+            <div className="bg-red-50 p-3 rounded-[16px] text-red-500 shadow-sm border border-red-100">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-red-600 font-black text-[13px] uppercase tracking-[0.1em] mb-1.5">AI Balance Empty</h3>
+              <p className="text-[#4B4A63] text-[13.5px] font-medium leading-relaxed">
+                The AI service is temporarily out of credits. Please try again later or contact the admin.
+              </p>
+            </div>
+          </div>
+        ), { duration: 8000 });
       } else {
         toast.error('Failed to parse resume.');
       }
