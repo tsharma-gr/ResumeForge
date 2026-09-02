@@ -1,8 +1,11 @@
 const { chatCompletion } = require('./aiService');
-const { buildResumeParsingPrompt } = require('./promptBuilder');
+const { 
+  buildHeaderParsingPrompt, 
+  buildWorkHistoryParsingPrompt 
+} = require('./promptBuilder');
 
 // Helper to chunk text safely by newlines
-const chunkText = (text, maxLength = 10000) => {
+const chunkText = (text, maxLength = 5000) => {
   if (text.length <= maxLength) return [text];
   
   const chunks = [];
@@ -38,62 +41,43 @@ const chunkText = (text, maxLength = 10000) => {
   return chunks;
 };
 
-// Helper to merge parsed JSON chunks safely
-const mergeParsedResults = (results) => {
-  if (!results || results.length === 0) return {};
-  if (results.length === 1) return results[0];
-  
-  const merged = { ...results[0] };
-  
-  if (!merged.comprehensive_work_history) merged.comprehensive_work_history = [];
-  if (!merged.employment_summary) merged.employment_summary = [];
-  if (!merged.education_and_skills) merged.education_and_skills = {};
-  
-  const edSkills = merged.education_and_skills;
+// Helper to merge 2-stage parsed JSON results safely
+const mergeParsedResults = (headerResult, workHistoryResults) => {
+  const merged = {
+    personal_info: headerResult?.personal_info || {},
+    personal_profile: headerResult?.personal_profile || '',
+    education_and_skills: headerResult?.education_and_skills || {
+      qualifications: [],
+      training: [],
+      certifications: [],
+      awards: [],
+      technical_skills: [],
+      license: []
+    },
+    employment_summary: [],
+    comprehensive_work_history: []
+  };
+
   const arrayFields = ['qualifications', 'training', 'certifications', 'awards', 'technical_skills', 'license'];
-  
+  const edSkills = merged.education_and_skills;
   for (const field of arrayFields) {
     if (!edSkills[field]) edSkills[field] = [];
   }
 
-  for (let i = 1; i < results.length; i++) {
-    const nextResult = results[i];
-    
-    // Merge personal_info safely (don't overwrite with empty)
-    if (nextResult.personal_info) {
-      if (!merged.personal_info) merged.personal_info = {};
-      for (const key of Object.keys(nextResult.personal_info)) {
-        if (!merged.personal_info[key] && nextResult.personal_info[key]) {
-          merged.personal_info[key] = nextResult.personal_info[key];
-        }
-      }
-    }
-    
-    // Merge personal_profile safely
-    if (!merged.personal_profile && nextResult.personal_profile) {
-      merged.personal_profile = nextResult.personal_profile;
-    }
+  for (const result of workHistoryResults) {
+    if (!result) continue;
     
     // Merge comprehensive work history
-    if (nextResult.comprehensive_work_history && Array.isArray(nextResult.comprehensive_work_history)) {
-      merged.comprehensive_work_history.push(...nextResult.comprehensive_work_history);
+    if (result.comprehensive_work_history && Array.isArray(result.comprehensive_work_history)) {
+      merged.comprehensive_work_history.push(...result.comprehensive_work_history);
     }
     
     // Merge employment summary
-    if (nextResult.employment_summary && Array.isArray(nextResult.employment_summary)) {
-      merged.employment_summary.push(...nextResult.employment_summary);
-    }
-    
-    // Merge education and skills
-    if (nextResult.education_and_skills) {
-      for (const field of arrayFields) {
-        if (Array.isArray(nextResult.education_and_skills[field])) {
-          edSkills[field].push(...nextResult.education_and_skills[field]);
-        }
-      }
+    if (result.employment_summary && Array.isArray(result.employment_summary)) {
+      merged.employment_summary.push(...result.employment_summary);
     }
   }
-  
+
   // Deduplicate employment summary based on company name
   if (merged.employment_summary.length > 0) {
     const uniqueSummary = [];
@@ -105,7 +89,6 @@ const mergeParsedResults = (results) => {
         uniqueSummary.push(job);
       }
     }
-    // Limit to top 5
     merged.employment_summary = uniqueSummary.slice(0, 5);
   }
   
@@ -120,29 +103,34 @@ const mergeParsedResults = (results) => {
 };
 
 const parseResume = async (extractedText, onProgress = () => {}) => {
-  const chunks = chunkText(extractedText, 10000); // 10000 characters hits the perfect sweet spot
+  // STAGE 1: Extract Header & Metadata (Personal Info, Profile, Education & Skills) from top portion of resume
+  onProgress('Stage 1: Extracting Candidate Profile & Personal Details...');
+  console.log('Stage 1: Extracting Candidate Profile & Personal Details...');
   
-  onProgress(`Total Chunks: ${chunks.length}`);
-  const parsedResults = [];
+  // Sample up to 5,000 characters from top of resume for metadata & education
+  const headerSample = extractedText.slice(0, 5000);
+  const headerPrompt = buildHeaderParsingPrompt(headerSample);
+  const headerResult = await chatCompletion(headerPrompt);
+
+  // STAGE 2: Extract Work History in clean 5,000 character chunks
+  const chunks = chunkText(extractedText, 5000);
+  onProgress(`Stage 2: Parsing Work History (${chunks.length} chunks)...`);
+  console.log(`Stage 2: Parsing Work History (${chunks.length} chunks)...`);
   
-  // Process sequentially to avoid API rate limits
+  const workHistoryResults = [];
   for (let i = 0; i < chunks.length; i++) {
-    const msg = `Processing chunk ${i + 1} of ${chunks.length}`;
+    const msg = `Processing work history chunk ${i + 1} of ${chunks.length}`;
     console.log(msg);
     onProgress(msg);
     
-    let promptPrefix = i > 0 
-      ? `THIS IS CONTINUATION CHUNK ${i+1} OF A LARGE RESUME. Focus primarily on extracting the remaining work history, education, and skills. Feel free to leave personal_info blank if not present.\n\n` 
-      : "";
-      
-    const prompt = buildResumeParsingPrompt(promptPrefix + chunks[i]);
-    const result = await chatCompletion(prompt);
-    parsedResults.push(result);
+    const workPrompt = buildWorkHistoryParsingPrompt(chunks[i]);
+    const result = await chatCompletion(workPrompt);
+    workHistoryResults.push(result);
   }
   
   onProgress('Merging results...');
-  const finalResult = mergeParsedResults(parsedResults);
-  const finalMsg = `Extraction complete. Extracted ${finalResult.comprehensive_work_history?.length || 0} jobs.`;
+  const finalResult = mergeParsedResults(headerResult, workHistoryResults);
+  const finalMsg = `Extraction complete. Extracted candidate "${finalResult.personal_info?.name || 'Unknown'}" with ${finalResult.comprehensive_work_history?.length || 0} jobs.`;
   console.log(finalMsg);
   onProgress(finalMsg);
   
