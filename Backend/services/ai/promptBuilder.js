@@ -1,6 +1,6 @@
 const buildHeaderParsingPrompt = (text) => {
   return `
-You are an expert ATS-optimized resume parser. Your task is to extract candidate profile, personal info, education, and skills.
+You are an expert ATS-optimized resume parser. Your task is to extract candidate profile, personal info, education, qualifications, skills, and licenses.
 
 SCHEMA:
 {
@@ -17,7 +17,7 @@ SCHEMA:
     "certifications": ["string"],
     "awards": ["string"],
     "technical_skills": ["string"],
-    "license": ["string"]
+    "license": ["string"] // Extract driving licenses, professional licenses, CSCS cards, etc.
   }
 }
 
@@ -26,7 +26,7 @@ INSTRUCTIONS:
 - Do not include markdown formatting.
 - **NAME**: Extract candidate's full name.
 - **LOCATION**: Extract ONLY a SINGLE geographic area: County or Country (e.g., "Berkshire" or "UK"). No city or street address.
-- **EDUCATION & SKILLS FORMAT**: Format as "Year - Qualification Name - Institution/Provider". Look for 4-digit years.
+- **EDUCATION & LICENSES**: Extract ALL educational entries, degrees, diplomas, training, certifications, and licenses (e.g., Full UK Driving License, CSCS Card).
 
 RESUME TEXT:
 ${text}
@@ -35,7 +35,7 @@ ${text}
 
 const buildWorkHistoryParsingPrompt = (text) => {
   return `
-You are an expert ATS-optimized resume parser. Extract work history from the provided text.
+You are an expert ATS-optimized resume parser. Extract work history, education, and licenses from the provided text.
 
 SCHEMA:
 {
@@ -59,7 +59,15 @@ SCHEMA:
       "projects": ["string"],
       "reason_for_leaving": "string"
     }
-  ]
+  ],
+  "education_and_skills": {
+    "qualifications": ["string"],
+    "training": ["string"],
+    "certifications": ["string"],
+    "awards": ["string"],
+    "technical_skills": ["string"],
+    "license": ["string"]
+  }
 }
 
 INSTRUCTIONS:
@@ -68,6 +76,7 @@ INSTRUCTIONS:
 - **VERBATIM EXTRACTION**: Copy-paste paragraphs and bullet points VERBATIM without summarizing.
 - **ROLE**: Short job title (1-5 words).
 - **DATE FORMAT**: "MMM-YYYY" (e.g., Jan-2024).
+- **EDUCATION & LICENSES**: If any qualifications, certificates, or licenses (e.g. driving license) appear in this text, extract them into "education_and_skills".
 
 RESUME TEXT:
 ${text}

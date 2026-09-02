@@ -76,6 +76,15 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
     if (result.employment_summary && Array.isArray(result.employment_summary)) {
       merged.employment_summary.push(...result.employment_summary);
     }
+
+    // Merge education and skills found in work history chunks
+    if (result.education_and_skills) {
+      for (const field of arrayFields) {
+        if (Array.isArray(result.education_and_skills[field])) {
+          edSkills[field].push(...result.education_and_skills[field]);
+        }
+      }
+    }
   }
 
   // Deduplicate employment summary based on company name
@@ -106,8 +115,11 @@ const parseResume = async (extractedText, onProgress = () => {}) => {
   onProgress('Starting high-speed parallel resume extraction...');
   console.log('Starting high-speed parallel resume extraction...');
 
-  // 1. Prepare Stage 1 Header Prompt (Top 5,000 characters)
-  const headerSample = extractedText.slice(0, 5000);
+  // 1. Prepare Stage 1 Header Prompt (Top 4,500 chars AND Bottom 4,500 chars to catch Education/Licenses at end)
+  let headerSample = extractedText;
+  if (extractedText.length > 9000) {
+    headerSample = extractedText.slice(0, 4500) + "\n\n--- END OF CV SECTIONS ---\n\n" + extractedText.slice(-4500);
+  }
   const headerPrompt = buildHeaderParsingPrompt(headerSample);
 
   // 2. Prepare Stage 2 Work History Chunks (5,000 characters each)
@@ -115,7 +127,7 @@ const parseResume = async (extractedText, onProgress = () => {}) => {
   onProgress(`Processing header & ${chunks.length} work history chunks in parallel...`);
   console.log(`Processing header & ${chunks.length} work history chunks in parallel...`);
 
-  // Cap max_tokens to 4000 to prevent DeepSeek reasoning loops from hitting 16k limits
+  // Cap max_tokens to 4000 to prevent reasoning loops
   const headerPromise = chatCompletion(headerPrompt, { max_tokens: 4000 });
   const chunkPromises = chunks.map((chunk, index) => {
     console.log(`Preparing parallel chunk ${index + 1} of ${chunks.length}`);
