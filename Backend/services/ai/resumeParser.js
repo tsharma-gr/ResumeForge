@@ -103,37 +103,38 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
 };
 
 const parseResume = async (extractedText, onProgress = () => {}) => {
-  // STAGE 1: Extract Header & Metadata (Personal Info, Profile, Education & Skills) from top portion of resume
-  onProgress('Stage 1: Extracting Candidate Profile & Personal Details...');
-  console.log('Stage 1: Extracting Candidate Profile & Personal Details...');
-  
-  // Sample up to 5,000 characters from top of resume for metadata & education
+  onProgress('Starting high-speed parallel resume extraction...');
+  console.log('Starting high-speed parallel resume extraction...');
+
+  // 1. Prepare Stage 1 Header Prompt (Top 5,000 characters)
   const headerSample = extractedText.slice(0, 5000);
   const headerPrompt = buildHeaderParsingPrompt(headerSample);
-  const headerResult = await chatCompletion(headerPrompt);
 
-  // STAGE 2: Extract Work History in clean 5,000 character chunks
+  // 2. Prepare Stage 2 Work History Chunks (5,000 characters each)
   const chunks = chunkText(extractedText, 5000);
-  onProgress(`Stage 2: Parsing Work History (${chunks.length} chunks)...`);
-  console.log(`Stage 2: Parsing Work History (${chunks.length} chunks)...`);
-  
-  const workHistoryResults = [];
-  for (let i = 0; i < chunks.length; i++) {
-    const msg = `Processing work history chunk ${i + 1} of ${chunks.length}`;
-    console.log(msg);
-    onProgress(msg);
-    
-    const workPrompt = buildWorkHistoryParsingPrompt(chunks[i]);
-    const result = await chatCompletion(workPrompt);
-    workHistoryResults.push(result);
-  }
-  
-  onProgress('Merging results...');
+  onProgress(`Processing header & ${chunks.length} work history chunks in parallel...`);
+  console.log(`Processing header & ${chunks.length} work history chunks in parallel...`);
+
+  // Cap max_tokens to 4000 to prevent DeepSeek reasoning loops from hitting 16k limits
+  const headerPromise = chatCompletion(headerPrompt, { max_tokens: 4000 });
+  const chunkPromises = chunks.map((chunk, index) => {
+    console.log(`Preparing parallel chunk ${index + 1} of ${chunks.length}`);
+    const workPrompt = buildWorkHistoryParsingPrompt(chunk);
+    return chatCompletion(workPrompt, { max_tokens: 4000 });
+  });
+
+  // 3. Execute ALL requests in parallel simultaneously!
+  const [headerResult, ...workHistoryResults] = await Promise.all([
+    headerPromise,
+    ...chunkPromises
+  ]);
+
+  onProgress('Merging parallel extraction results...');
   const finalResult = mergeParsedResults(headerResult, workHistoryResults);
   const finalMsg = `Extraction complete. Extracted candidate "${finalResult.personal_info?.name || 'Unknown'}" with ${finalResult.comprehensive_work_history?.length || 0} jobs.`;
   console.log(finalMsg);
   onProgress(finalMsg);
-  
+
   return finalResult;
 };
 
