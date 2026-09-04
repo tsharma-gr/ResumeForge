@@ -166,14 +166,49 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
         {education.length > 0 && (
           <div className="mb-6">
             <div className="font-bold mb-2 text-slate-800">Education/Qualification</div>
-            <ul className="space-y-1">
-              {education.map((edu, i) => (
-                <li key={i} className="flex gap-2 text-slate-700 ml-4">
-                  <span>•</span>
-                  <span>{edu}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-3">
+              {education.map((edu, i) => {
+                if (typeof edu === 'object' && edu !== null) {
+                  const inst = edu.institution?.trim();
+                  const dates = edu.dates?.trim();
+                  const degree = edu.degree?.trim();
+                  const details = ensureArray(edu.details).filter(d => d && String(d).trim());
+                  const paras = ensureArray(edu.description_paragraphs).filter(p => p && String(p).trim());
+
+                  return (
+                    <div key={i} className="mb-2">
+                      {(inst || dates) && (
+                        <div className="font-bold text-slate-900 text-[11pt]">
+                          {inst} {dates ? `(${dates})` : ''}
+                        </div>
+                      )}
+                      {degree && (
+                        <div className="flex gap-2 text-slate-700 ml-4 text-[11pt]">
+                          <span>•</span>
+                          <span>{degree}</span>
+                        </div>
+                      )}
+                      {details.map((det, idx) => (
+                        <div key={idx} className="flex gap-2 text-slate-700 ml-4 text-[11pt]">
+                          <span>•</span>
+                          <span>{typeof det === 'object' ? (det.title || JSON.stringify(det)) : String(det)}</span>
+                        </div>
+                      ))}
+                      {paras.map((p, idx) => (
+                        <p key={idx} className="text-slate-700 text-[11pt] leading-relaxed mt-1">{p}</p>
+                      ))}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={i} className="flex gap-2 text-slate-700 ml-4 text-[11pt]">
+                    <span>•</span>
+                    <span>{String(edu)}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -184,7 +219,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
               {training.map((t, i) => (
                 <li key={i} className="flex gap-2 text-slate-700 ml-4">
                   <span>•</span>
-                  <span>{t}</span>
+                  <span>{typeof t === 'object' && t !== null ? (t.title || t.name || JSON.stringify(t)) : String(t)}</span>
                 </li>
               ))}
             </ul>
@@ -198,7 +233,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
               {certifications.map((c, i) => (
                 <li key={i} className="flex gap-2 text-slate-700 ml-4">
                   <span>•</span>
-                  <span>{c}</span>
+                  <span>{typeof c === 'object' && c !== null ? (c.title || c.name || JSON.stringify(c)) : String(c)}</span>
                 </li>
               ))}
             </ul>
@@ -212,7 +247,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
               {skills.map((skill, i) => (
                 <li key={i} className="flex gap-2 text-slate-700 ml-4">
                   <span>•</span>
-                  <span>{skill}</span>
+                  <span>{typeof skill === 'object' && skill !== null ? (skill.name || JSON.stringify(skill)) : String(skill)}</span>
                 </li>
               ))}
             </ul>
@@ -226,7 +261,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
               {awards.map((a, i) => (
                 <li key={i} className="flex gap-2 text-slate-700 ml-4">
                   <span>•</span>
-                  <span>{a}</span>
+                  <span>{typeof a === 'object' && a !== null ? (a.title || a.name || JSON.stringify(a)) : String(a)}</span>
                 </li>
               ))}
             </ul>
@@ -240,7 +275,7 @@ const BaseResumeTemplate = ({ data = {}, templateId = 'totaco' }) => {
               {license.map((l, i) => (
                 <li key={i} className="flex gap-2 text-slate-700 ml-4">
                   <span>•</span>
-                  <span>{l}</span>
+                  <span>{typeof l === 'object' && l !== null ? (l.title || l.name || JSON.stringify(l)) : String(l)}</span>
                 </li>
               ))}
             </ul>
