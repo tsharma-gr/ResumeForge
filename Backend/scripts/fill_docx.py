@@ -393,25 +393,36 @@ def fill_resume(template_path, output_path, data):
             # 2. Responsibilities (Bullet Points)
             resps = job.get('responsibilities', [])
             resp_header = job.get('responsibilities_header', '').strip()
+            intro_keywords = [
+                'in areas such as', 'each project are', 'responsibilities include', 
+                'duties include', 'experience in areas', 'involved in each project', 
+                'following tasks', 'duties involved', 'key responsibilities', 'main duties'
+            ]
             
             if resp_header:
-                p_h = doc.add_paragraph(style='Normal')
-                p_h.paragraph_format.left_indent = Pt(36)
-                p_h.paragraph_format.first_line_indent = Pt(-18)
-                p_h.paragraph_format.space_after = Pt(2)
-                h_text = resp_header if resp_header.endswith(':') else f"{resp_header}:"
-                run = p_h.add_run(f"•\t{h_text}")
-                set_font(run, 11, True) # Bold header
-                last_element.addnext(p_h._element)
-                last_element = p_h._element
+                rh_lower = resp_header.lower().rstrip(':')
+                is_generic_header = rh_lower in header_keywords or any(phrase in rh_lower for phrase in intro_keywords)
+                if not is_generic_header:
+                    p_h = doc.add_paragraph(style='Normal')
+                    p_h.paragraph_format.left_indent = Pt(36)
+                    p_h.paragraph_format.first_line_indent = Pt(-18)
+                    p_h.paragraph_format.space_after = Pt(2)
+                    h_text = resp_header if resp_header.endswith(':') else f"{resp_header}:"
+                    run = p_h.add_run(f"•\t{h_text}")
+                    set_font(run, 11, True) # Bold header
+                    last_element.addnext(p_h._element)
+                    last_element = p_h._element
 
             if resps:
                 for resp in resps:
                     r_clean = resp.strip()
                     if not r_clean: continue
                     r_lower = r_clean.lower().rstrip(':')
-                    # Skip if the resp is just the header again or ends with colon header intro
+                    
+                    # Skip if the resp is just the header again, ends with colon, or is an intro phrase
                     if r_lower in header_keywords or r_lower == resp_header.lower().rstrip(':'):
+                        continue
+                    if any(phrase in r_lower for phrase in intro_keywords) and len(r_clean.split()) <= 12:
                         continue
                     if r_clean.endswith(':') and len(r_clean.split()) <= 8:
                         continue
