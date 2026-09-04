@@ -108,6 +108,43 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
     merged.employment_summary = uniqueSummary.slice(0, 5);
   }
   
+  // Helper for semantic qualification deduplication (splits compound titles & deduplicates word-order variations)
+  const deduplicateQuals = (rawList) => {
+    const result = [];
+    const seenKeys = new Set();
+
+    const processItem = (str) => {
+      if (!str || typeof str !== 'string') return;
+      const cleanStr = str.strip ? str.strip() : String(str).trim();
+      if (!cleanStr) return;
+
+      // Handle compound strings like "Degree A; Degree B" or "Degree A \n Degree B"
+      if (cleanStr.includes(';') || cleanStr.includes('\n')) {
+        cleanStr.split(/[;\n]/).forEach(part => processItem(part));
+        return;
+      }
+
+      // Create normalized key (sorted significant words to catch reordered strings like "First Class BSc..." vs "BSc... First Class")
+      const normWords = cleanStr.toLowerCase()
+        .replace(/[^a-z0-9]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 1 && !['in', 'of', 'and', 'the', 'a', 'an', 'for', 'with', 'at'].includes(w))
+        .sort();
+
+      const keyExact = cleanStr.toLowerCase().replace(/\s+/g, ' ');
+      const keyWords = normWords.join(' ');
+
+      if (keyExact && !seenKeys.has(keyExact) && (!keyWords || !seenKeys.has(keyWords))) {
+        seenKeys.add(keyExact);
+        if (keyWords) seenKeys.add(keyWords);
+        result.push(cleanStr);
+      }
+    };
+
+    rawList.forEach(item => processItem(item));
+    return result;
+  };
+
   // 1. Smart Institution Consolidation: Merge qualifications sharing the same institution name
   if (edSkills.qualifications && edSkills.qualifications.length > 0) {
     const instMap = new Map();
@@ -127,15 +164,11 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
         } else {
           const existing = instMap.get(normInst);
           if (!existing.dates && item.dates) existing.dates = item.dates;
-          if (item.degree && !existing.degrees.some(d => d.toLowerCase() === item.degree.trim().toLowerCase())) {
-            existing.degrees.push(item.degree.trim());
-          }
+          if (item.degree) existing.degrees.push(item.degree.trim());
           if (Array.isArray(item.details)) {
             for (const d of item.details) {
               const dStr = String(d).trim();
-              if (dStr && !existing.details.some(existingD => existingD.toLowerCase() === dStr.toLowerCase())) {
-                existing.details.push(dStr);
-              }
+              if (dStr) existing.details.push(dStr);
             }
           }
           if (Array.isArray(item.description_paragraphs)) {
@@ -153,10 +186,11 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
     }
 
     const mergedInstObjects = Array.from(instMap.values()).map(instObj => {
-      const primaryDegree = instObj.degrees[0] || '';
-      const extraDegrees = instObj.degrees.slice(1);
-      const combinedDetails = Array.from(new Set([...extraDegrees, ...instObj.details]));
-      const finalDetails = combinedDetails.filter(d => d.toLowerCase() !== primaryDegree.toLowerCase());
+      const allQualsRaw = [...instObj.degrees, ...instObj.details];
+      const cleanQuals = deduplicateQuals(allQualsRaw);
+
+      const primaryDegree = cleanQuals[0] || '';
+      const finalDetails = cleanQuals.slice(1);
 
       return {
         institution: instObj.institution,

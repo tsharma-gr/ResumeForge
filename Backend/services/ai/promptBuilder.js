@@ -13,21 +13,20 @@ SCHEMA:
   "personal_profile": "string",
   "education_and_skills": {
     "qualifications": [
-      // Can be a structured object for university/college entries:
+      // Create a SEPARATE object for EACH college, university, or diploma:
       {
-        "institution": "string", // Institution / College / University Name (e.g. "Birmingham City University")
-        "dates": "string", // Attendance period / tenure (e.g. "September 2014 – May 2019")
-        "degree": "string", // Degree, Diploma, or Qualification title
-        "details": ["string"], // Any bullet points or additional certificates under this institution
-        "description_paragraphs": ["string"] // Paragraphs describing the course, subjects studied, or academic focus
+        "institution": "string", // Institution / College / University Name (e.g. "Birmingham City University" or "South Gloucestershire and Stroud College")
+        "dates": "string", // Attendance period / tenure (e.g. "September 2014 – May 2019" or "September 2013")
+        "degree": "string", // Degree, Diploma, or Qualification title at this institution
+        "details": ["string"], // Sub-bullet qualifications belonging ONLY to this specific institution
+        "description_paragraphs": ["string"] // Descriptive paragraphs under this college/course (e.g. course focus, subjects studied)
       }
-      // OR a string for simple qualifications: "Qualification Title"
     ],
     "training": ["string"],
     "certifications": ["string"],
     "awards": ["string"],
     "technical_skills": ["string"],
-    "license": ["string"] // Extract driving licenses, professional licenses, CSCS cards, etc.
+    "license": ["string"]
   }
 }
 
@@ -36,7 +35,8 @@ INSTRUCTIONS:
 - Do not include markdown formatting.
 - **NAME**: Extract candidate's full name.
 - **LOCATION**: Extract ONLY a SINGLE geographic area: County or Country (e.g., "Berkshire" or "UK"). No city or street address.
-- **EDUCATION & LICENSES**: Extract ALL educational entries, degrees, diplomas, training, certifications, and licenses. For education, preserve the Institution Name, Dates/Tenure, Degree/Qualification Title, sub-bullets, and descriptive paragraphs VERBATIM. Extract plant operator cards, CPCS, CSCS, NVQ, SMSTS, and professional tickets into "certifications". For **license**, extract ONLY driving licenses (e.g. Full UK Driving License) or official council registration licenses. Do not duplicate training/plant operator certificates into license.
+- **EDUCATION SEPARATION**: Extract EACH college, university, or diploma provider as a SEPARATE object in "qualifications". NEVER merge different colleges or diplomas (e.g. "Access to Higher Education Diploma") into the details array of another university. Preserve all course description paragraphs under their respective college object.
+- **LICENSES**: Extract plant operator cards, CPCS, CSCS, NVQ, SMSTS, and professional tickets into "certifications". For "license", extract ONLY official driving licenses (e.g. Full UK Driving License) or official council registration licenses. Do not duplicate training certificates into license.
 
 RESUME TEXT:
 ${text}
@@ -94,7 +94,7 @@ INSTRUCTIONS:
 - **VERBATIM EXTRACTION**: Copy-paste paragraphs and bullet points VERBATIM without summarizing.
 - **ROLE**: Short job title (1-5 words).
 - **DATE FORMAT**: "MMM-YYYY" (e.g., Jan-2024).
-- **EDUCATION & LICENSES**: Extract any qualifications, degrees, institutions, dates, descriptive course paragraphs, certificates (e.g. CPCS trained plant operator, CSCS card), or licenses appearing in this text into "education_and_skills".
+- **EDUCATION SEPARATION**: Extract EACH college, university, or diploma as a SEPARATE object in "qualifications". Do NOT combine different colleges into one entry. Preserve all descriptive course paragraphs under their respective institution.
 
 RESUME TEXT:
 ${text}
