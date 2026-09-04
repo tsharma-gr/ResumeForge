@@ -12,7 +12,17 @@ SCHEMA:
   },
   "personal_profile": "string",
   "education_and_skills": {
-    "qualifications": ["string"],
+    "qualifications": [
+      // Can be a structured object for university/college entries:
+      {
+        "institution": "string", // Institution / College / University Name (e.g. "Birmingham City University")
+        "dates": "string", // Attendance period / tenure (e.g. "September 2014 – May 2019")
+        "degree": "string", // Degree, Diploma, or Qualification title
+        "details": ["string"], // Any bullet points or additional certificates under this institution
+        "description_paragraphs": ["string"] // Paragraphs describing the course, subjects studied, or academic focus
+      }
+      // OR a string for simple qualifications: "Qualification Title"
+    ],
     "training": ["string"],
     "certifications": ["string"],
     "awards": ["string"],
@@ -26,7 +36,7 @@ INSTRUCTIONS:
 - Do not include markdown formatting.
 - **NAME**: Extract candidate's full name.
 - **LOCATION**: Extract ONLY a SINGLE geographic area: County or Country (e.g., "Berkshire" or "UK"). No city or street address.
-- **EDUCATION & LICENSES**: Extract ALL educational entries, degrees, diplomas, training, certifications, and licenses (e.g., Full UK Driving License, CSCS Card).
+- **EDUCATION & LICENSES**: Extract ALL educational entries, degrees, diplomas, training, certifications, and licenses. For education, preserve the Institution Name, Dates/Tenure, Degree/Qualification Title, sub-bullets, and descriptive paragraphs VERBATIM.
 
 RESUME TEXT:
 ${text}
@@ -61,7 +71,15 @@ SCHEMA:
     }
   ],
   "education_and_skills": {
-    "qualifications": ["string"],
+    "qualifications": [
+      {
+        "institution": "string",
+        "dates": "string",
+        "degree": "string",
+        "details": ["string"],
+        "description_paragraphs": ["string"]
+      }
+    ],
     "training": ["string"],
     "certifications": ["string"],
     "awards": ["string"],
@@ -76,7 +94,7 @@ INSTRUCTIONS:
 - **VERBATIM EXTRACTION**: Copy-paste paragraphs and bullet points VERBATIM without summarizing.
 - **ROLE**: Short job title (1-5 words).
 - **DATE FORMAT**: "MMM-YYYY" (e.g., Jan-2024).
-- **EDUCATION & LICENSES**: If any qualifications, certificates, or licenses (e.g. driving license) appear in this text, extract them into "education_and_skills".
+- **EDUCATION & LICENSES**: Extract any qualifications, degrees, institutions, dates, descriptive course paragraphs, certificates, or licenses (e.g. driving license) appearing in this text into "education_and_skills".
 
 RESUME TEXT:
 ${text}
@@ -105,7 +123,15 @@ SCHEMA:
     }
   ],
   "education_and_skills": {
-    "qualifications": ["string"],
+    "qualifications": [
+      {
+        "institution": "string",
+        "dates": "string",
+        "degree": "string",
+        "details": ["string"],
+        "description_paragraphs": ["string"]
+      }
+    ],
     "training": ["string"],
     "certifications": ["string"],
     "awards": ["string"],

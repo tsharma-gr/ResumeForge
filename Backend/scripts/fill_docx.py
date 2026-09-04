@@ -510,7 +510,7 @@ def fill_resume(template_path, output_path, data):
                     p._element.getparent().remove(p._element)
                     break
 
-        # Helper to add a section with bullets
+        # Helper to add a section with bullets or structured objects
         def add_bullet_section(title, items, is_edu=False):
             nonlocal last_element
             if not items: return
@@ -524,8 +524,8 @@ def fill_resume(template_path, output_path, data):
             last_element.addnext(p_label._element)
             last_element = p_label._element
             
-            # Bullets
-            if is_edu:
+            # Bullets or structured objects
+            if is_edu and all(isinstance(x, str) for x in items):
                 def get_yr(s):
                     import re
                     try: 
@@ -537,15 +537,69 @@ def fill_resume(template_path, output_path, data):
                 items.sort(key=get_yr)
 
             for item in items:
-                if not item.strip(): continue
-                p_item = doc.add_paragraph(style='Normal')
-                p_item.paragraph_format.left_indent = Pt(36)
-                p_item.paragraph_format.first_line_indent = Pt(-18)
-                p_item.paragraph_format.space_after = Pt(6)
-                run = p_item.add_run(f"•\t{item.strip()}")
-                set_font(run, 11)
-                last_element.addnext(p_item._element)
-                last_element = p_item._element
+                if isinstance(item, dict):
+                    inst = item.get('institution', '').strip()
+                    dates = item.get('dates', '').strip()
+                    degree = item.get('degree', '').strip()
+                    details = item.get('details', []) or []
+                    paras = item.get('description_paragraphs', []) or []
+
+                    # 1. Institution & Dates Header
+                    if inst or dates:
+                        p_inst = doc.add_paragraph(style='Normal')
+                        p_inst.paragraph_format.space_before = Pt(8)
+                        p_inst.paragraph_format.space_after = Pt(2)
+                        
+                        dates_str = f" ({dates})" if dates else ""
+                        run_inst = p_inst.add_run(f"{inst}{dates_str}".strip())
+                        set_font(run_inst, 11, True)
+                        last_element.addnext(p_inst._element)
+                        last_element = p_inst._element
+
+                    # 2. Degree / Qualification Title
+                    if degree:
+                        p_deg = doc.add_paragraph(style='Normal')
+                        p_deg.paragraph_format.left_indent = Pt(36)
+                        p_deg.paragraph_format.first_line_indent = Pt(-18)
+                        p_deg.paragraph_format.space_after = Pt(4)
+                        run_deg = p_deg.add_run(f"•\t{degree}")
+                        set_font(run_deg, 11)
+                        last_element.addnext(p_deg._element)
+                        last_element = p_deg._element
+
+                    # 3. Sub-details
+                    for det in details:
+                        if not isinstance(det, str) or not det.strip(): continue
+                        p_det = doc.add_paragraph(style='Normal')
+                        p_det.paragraph_format.left_indent = Pt(36)
+                        p_det.paragraph_format.first_line_indent = Pt(-18)
+                        p_det.paragraph_format.space_after = Pt(4)
+                        run_det = p_det.add_run(f"•\t{det.strip()}")
+                        set_font(run_det, 11)
+                        last_element.addnext(p_det._element)
+                        last_element = p_det._element
+
+                    # 4. Descriptive Paragraphs
+                    for para in paras:
+                        if not isinstance(para, str) or not para.strip(): continue
+                        p_para = doc.add_paragraph(para.strip(), style='Normal')
+                        p_para.paragraph_format.space_before = Pt(4)
+                        p_para.paragraph_format.space_after = Pt(6)
+                        p_para.paragraph_format.line_spacing = 1.15
+                        for r in p_para.runs: set_font(r, 11)
+                        last_element.addnext(p_para._element)
+                        last_element = p_para._element
+
+                elif isinstance(item, str):
+                    if not item.strip(): continue
+                    p_item = doc.add_paragraph(style='Normal')
+                    p_item.paragraph_format.left_indent = Pt(36)
+                    p_item.paragraph_format.first_line_indent = Pt(-18)
+                    p_item.paragraph_format.space_after = Pt(6)
+                    run = p_item.add_run(f"•\t{item.strip()}")
+                    set_font(run, 11)
+                    last_element.addnext(p_item._element)
+                    last_element = p_item._element
 
         # Render sections in order
         if is_totaco:
@@ -554,13 +608,14 @@ def fill_resume(template_path, output_path, data):
                           (ed_skills.get('training', []) or []) + \
                           (ed_skills.get('certifications', []) or [])
             
-            
             all_edu = []
             import re
             
             def extract_and_format_education(item):
                 """Extract year from education item and format it properly"""
-                if not item or not item.strip():
+                if isinstance(item, dict):
+                    return item
+                if not item or not isinstance(item, str) or not item.strip():
                     return None
                 
                 item = item.strip()
@@ -597,22 +652,29 @@ def fill_resume(template_path, output_path, data):
             
             # Sort by year (items without year go to the end)
             def get_sort_key(item):
-                # Extract year from the beginning of the item
-                year_match = re.match(r'^(\d{4})', item)
+                if isinstance(item, dict):
+                    d_str = item.get('dates', '')
+                    match = re.search(r'\b(19|20)\d{2}\b', d_str)
+                    if match:
+                        try: return int(match.group(0))
+                        except: return 9999
+                    return 9999
+                # Extract year from the beginning of the item string
+                year_match = re.match(r'^(\d{4})', str(item))
                 if year_match:
                     try:
-                        year_int = int(year_match.group(1))
-                        return year_int
+                        return int(year_match.group(1))
                     except:
-                        return 9999  # Put at end if conversion fails
-                return 9999  # Put items without year at end
-            
+                        return 9999
+                return 9999
             
             processed_items.sort(key=get_sort_key)
             
-            
             # Final formatting for display
             for item in processed_items:
+                if isinstance(item, dict):
+                    all_edu.append(item)
+                    continue
                 parts = item.split(' - ', 2)  # Split into max 3 parts
                 if len(parts) >= 3:
                     year = parts[0].strip()
@@ -621,23 +683,18 @@ def fill_resume(template_path, output_path, data):
                     result = f"{year} - {degree} - {institution}"
                     all_edu.append(result)
                 elif len(parts) == 2:
-                    # Could be "Year - Degree" or "Degree - Institution"
                     year_match = re.match(r'^\d{4}', parts[0])
                     if year_match:
-                        # Year - Degree format
                         result = f"{parts[0].strip()} - {parts[1].strip()}"
                         all_edu.append(result)
                     else:
-                        # Degree - Institution format (no year)
                         degree = parts[0].strip()
                         institution = parts[1].strip()
                         result = f"{degree} - {institution}"
                         all_edu.append(result)
                 else:
-                    # Single item
                     result = item.strip()
                     all_edu.append(result)
-            
 
             add_bullet_section("Education/Qualification", all_edu, is_edu=True)
         else:

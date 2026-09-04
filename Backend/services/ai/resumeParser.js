@@ -101,10 +101,22 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
     merged.employment_summary = uniqueSummary.slice(0, 5);
   }
   
-  // Deduplicate education and skills arrays
+  // Deduplicate education and skills arrays (supporting both objects and strings)
   for (const field of arrayFields) {
     if (edSkills[field].length > 0) {
-      edSkills[field] = [...new Set(edSkills[field])];
+      const seen = new Set();
+      const uniqueItems = [];
+      for (const item of edSkills[field]) {
+        let key = typeof item === 'object' && item !== null 
+          ? `${item.institution || ''}-${item.degree || ''}-${item.dates || ''}`.trim()
+          : String(item).trim();
+        if (!key) key = JSON.stringify(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueItems.push(item);
+        }
+      }
+      edSkills[field] = uniqueItems;
     }
   }
 
