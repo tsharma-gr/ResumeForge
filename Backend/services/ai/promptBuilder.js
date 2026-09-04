@@ -36,7 +36,7 @@ INSTRUCTIONS:
 - Do not include markdown formatting.
 - **NAME**: Extract candidate's full name.
 - **LOCATION**: Extract ONLY a SINGLE geographic area: County or Country (e.g., "Berkshire" or "UK"). No city or street address.
-- **EDUCATION & LICENSES**: Extract ALL educational entries, degrees, diplomas, training, certifications, and licenses. For education, preserve the Institution Name, Dates/Tenure, Degree/Qualification Title, sub-bullets, and descriptive paragraphs VERBATIM. For **license**, extract ONLY official driving licenses (e.g. Full UK Driving License), CSCS cards, or professional council licenses. Do not duplicate training certificates into license.
+- **EDUCATION & LICENSES**: Extract ALL educational entries, degrees, diplomas, training, certifications, and licenses. For education, preserve the Institution Name, Dates/Tenure, Degree/Qualification Title, sub-bullets, and descriptive paragraphs VERBATIM. Extract plant operator cards, CPCS, CSCS, NVQ, SMSTS, and professional tickets into "certifications". For **license**, extract ONLY driving licenses (e.g. Full UK Driving License) or official council registration licenses. Do not duplicate training/plant operator certificates into license.
 
 RESUME TEXT:
 ${text}
@@ -94,7 +94,7 @@ INSTRUCTIONS:
 - **VERBATIM EXTRACTION**: Copy-paste paragraphs and bullet points VERBATIM without summarizing.
 - **ROLE**: Short job title (1-5 words).
 - **DATE FORMAT**: "MMM-YYYY" (e.g., Jan-2024).
-- **EDUCATION & LICENSES**: Extract any qualifications, degrees, institutions, dates, descriptive course paragraphs, certificates, or licenses (e.g. driving license) appearing in this text into "education_and_skills".
+- **EDUCATION & LICENSES**: Extract any qualifications, degrees, institutions, dates, descriptive course paragraphs, certificates (e.g. CPCS trained plant operator, CSCS card), or licenses appearing in this text into "education_and_skills".
 
 RESUME TEXT:
 ${text}
