@@ -247,11 +247,13 @@ def fill_resume(template_path, output_path, data):
         for job in employment_summary:
             if not isinstance(job, dict): continue
             company_raw = job.get('company_name', '').strip()
-            if not company_raw: continue
+            from_val = job.get('from', '').strip()
+            to_val = job.get('to', '').strip()
+            if not company_raw or (not from_val and not to_val): continue
             
             processed_summary.append({
-                'from': job.get('from', ''),
-                'to': job.get('to', ''),
+                'from': from_val,
+                'to': to_val,
                 'company_name': company_raw,
                 'position': job.get('position', ''),
             })
@@ -367,7 +369,7 @@ def fill_resume(template_path, output_path, data):
                 
             period_val = job.get('period', '').lower()
             is_current = "current" in period_val or "present" in period_val
-            header_keywords = ['key responsibilities', 'key responsibility', 'main duties', 'responsibilities', 'duties']
+            header_keywords = ['key responsibilities', 'key responsibility', 'main duties', 'responsibilities', 'duties', 'works involved in each project are']
             import re
 
             for para_text in sum_paras:
@@ -405,16 +407,20 @@ def fill_resume(template_path, output_path, data):
 
             if resps:
                 for resp in resps:
-                    if not resp.strip(): continue
-                    # Skip if the resp is just the header again
-                    if resp.lower().rstrip(':') in header_keywords:
+                    r_clean = resp.strip()
+                    if not r_clean: continue
+                    r_lower = r_clean.lower().rstrip(':')
+                    # Skip if the resp is just the header again or ends with colon header intro
+                    if r_lower in header_keywords or r_lower == resp_header.lower().rstrip(':'):
+                        continue
+                    if r_clean.endswith(':') and len(r_clean.split()) <= 8:
                         continue
                         
                     p_resp = doc.add_paragraph(style='Normal')
                     p_resp.paragraph_format.left_indent = Pt(36)
                     p_resp.paragraph_format.first_line_indent = Pt(-18)
                     p_resp.paragraph_format.space_after = Pt(6)
-                    run = p_resp.add_run(f"•\t{resp.strip()}")
+                    run = p_resp.add_run(f"•\t{r_clean}")
                     set_font(run, 11)
                     last_element.addnext(p_resp._element)
                     last_element = p_resp._element

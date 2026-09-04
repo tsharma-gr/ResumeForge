@@ -87,12 +87,19 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
     }
   }
 
-  // Deduplicate employment summary based on company name
+  // Deduplicate employment summary based on company name (and filter entries without dates)
   if (merged.employment_summary.length > 0) {
     const uniqueSummary = [];
     const seen = new Set();
     for (const job of merged.employment_summary) {
-      const key = `${job.company_name}-${job.position}`;
+      if (!job || typeof job !== 'object') continue;
+      const fromVal = (job.from || '').trim();
+      const toVal = (job.to || '').trim();
+      if (!fromVal && !toVal) continue; // Skip date-less entries like hobbies or sports teams
+      const companyRaw = (job.company_name || '').trim();
+      if (!companyRaw) continue;
+      
+      const key = `${companyRaw.toLowerCase()}-${(job.position || '').toLowerCase()}`;
       if (!seen.has(key)) {
         seen.add(key);
         uniqueSummary.push(job);
@@ -120,19 +127,23 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
         } else {
           const existing = instMap.get(normInst);
           if (!existing.dates && item.dates) existing.dates = item.dates;
-          if (item.degree && !existing.degrees.includes(item.degree.trim())) {
+          if (item.degree && !existing.degrees.some(d => d.toLowerCase() === item.degree.trim().toLowerCase())) {
             existing.degrees.push(item.degree.trim());
           }
           if (Array.isArray(item.details)) {
             for (const d of item.details) {
               const dStr = String(d).trim();
-              if (dStr && !existing.details.includes(dStr)) existing.details.push(dStr);
+              if (dStr && !existing.details.some(existingD => existingD.toLowerCase() === dStr.toLowerCase())) {
+                existing.details.push(dStr);
+              }
             }
           }
           if (Array.isArray(item.description_paragraphs)) {
             for (const p of item.description_paragraphs) {
-              const pStr = String(p).trim();
-              if (pStr && !existing.description_paragraphs.includes(pStr)) existing.description_paragraphs.push(pStr);
+              const pNorm = String(p).replace(/\s+/g, ' ').trim();
+              if (pNorm && !existing.description_paragraphs.some(existingP => existingP.replace(/\s+/g, ' ').trim() === pNorm)) {
+                existing.description_paragraphs.push(String(p).trim());
+              }
             }
           }
         }
