@@ -101,7 +101,65 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
     merged.employment_summary = uniqueSummary.slice(0, 5);
   }
   
-  // Deduplicate education and skills arrays (supporting both objects and strings)
+  // 1. Smart Institution Consolidation: Merge qualifications sharing the same institution name
+  if (edSkills.qualifications && edSkills.qualifications.length > 0) {
+    const instMap = new Map();
+    const otherQuals = [];
+
+    for (const item of edSkills.qualifications) {
+      if (typeof item === 'object' && item !== null && item.institution) {
+        const normInst = item.institution.trim().toLowerCase();
+        if (!instMap.has(normInst)) {
+          instMap.set(normInst, {
+            institution: item.institution.trim(),
+            dates: item.dates || '',
+            degrees: item.degree ? [item.degree.trim()] : [],
+            details: Array.isArray(item.details) ? item.details.map(d => String(d).trim()).filter(Boolean) : [],
+            description_paragraphs: Array.isArray(item.description_paragraphs) ? item.description_paragraphs.map(p => String(p).trim()).filter(Boolean) : []
+          });
+        } else {
+          const existing = instMap.get(normInst);
+          if (!existing.dates && item.dates) existing.dates = item.dates;
+          if (item.degree && !existing.degrees.includes(item.degree.trim())) {
+            existing.degrees.push(item.degree.trim());
+          }
+          if (Array.isArray(item.details)) {
+            for (const d of item.details) {
+              const dStr = String(d).trim();
+              if (dStr && !existing.details.includes(dStr)) existing.details.push(dStr);
+            }
+          }
+          if (Array.isArray(item.description_paragraphs)) {
+            for (const p of item.description_paragraphs) {
+              const pStr = String(p).trim();
+              if (pStr && !existing.description_paragraphs.includes(pStr)) existing.description_paragraphs.push(pStr);
+            }
+          }
+        }
+      } else {
+        otherQuals.push(item);
+      }
+    }
+
+    const mergedInstObjects = Array.from(instMap.values()).map(instObj => {
+      const primaryDegree = instObj.degrees[0] || '';
+      const extraDegrees = instObj.degrees.slice(1);
+      const combinedDetails = Array.from(new Set([...extraDegrees, ...instObj.details]));
+      const finalDetails = combinedDetails.filter(d => d.toLowerCase() !== primaryDegree.toLowerCase());
+
+      return {
+        institution: instObj.institution,
+        dates: instObj.dates,
+        degree: primaryDegree,
+        details: finalDetails,
+        description_paragraphs: instObj.description_paragraphs
+      };
+    });
+
+    edSkills.qualifications = [...mergedInstObjects, ...otherQuals];
+  }
+
+  // 2. Deduplicate individual education and skills arrays
   for (const field of arrayFields) {
     if (edSkills[field].length > 0) {
       const seen = new Set();
@@ -118,6 +176,37 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
       }
       edSkills[field] = uniqueItems;
     }
+  }
+
+  // 3. Cross-Deduplication: Prevent items in certifications/training/qualifications from repeating in license
+  const existingTexts = new Set();
+  const extractTexts = (items) => {
+    for (const item of items) {
+      if (typeof item === 'string') {
+        existingTexts.add(item.trim().toLowerCase());
+      } else if (typeof item === 'object' && item !== null) {
+        if (item.degree) existingTexts.add(item.degree.trim().toLowerCase());
+        if (Array.isArray(item.details)) item.details.forEach(d => existingTexts.add(String(d).trim().toLowerCase()));
+      }
+    }
+  };
+
+  extractTexts(edSkills.qualifications);
+  extractTexts(edSkills.training);
+  extractTexts(edSkills.certifications);
+  extractTexts(edSkills.awards);
+
+  if (edSkills.license && edSkills.license.length > 0) {
+    edSkills.license = edSkills.license.filter(lic => {
+      const licText = typeof lic === 'object' ? JSON.stringify(lic).toLowerCase() : String(lic).trim().toLowerCase();
+      // Remove if this item is already in certifications, qualifications, training, or awards
+      for (const existing of existingTexts) {
+        if (existing.includes(licText) || licText.includes(existing)) {
+          return false;
+        }
+      }
+      return true;
+    });
   }
 
   return merged;

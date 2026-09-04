@@ -36,7 +36,7 @@ INSTRUCTIONS:
 - Do not include markdown formatting.
 - **NAME**: Extract candidate's full name.
 - **LOCATION**: Extract ONLY a SINGLE geographic area: County or Country (e.g., "Berkshire" or "UK"). No city or street address.
-- **EDUCATION & LICENSES**: Extract ALL educational entries, degrees, diplomas, training, certifications, and licenses. For education, preserve the Institution Name, Dates/Tenure, Degree/Qualification Title, sub-bullets, and descriptive paragraphs VERBATIM.
+- **EDUCATION & LICENSES**: Extract ALL educational entries, degrees, diplomas, training, certifications, and licenses. For education, preserve the Institution Name, Dates/Tenure, Degree/Qualification Title, sub-bullets, and descriptive paragraphs VERBATIM. For **license**, extract ONLY official driving licenses (e.g. Full UK Driving License), CSCS cards, or professional council licenses. Do not duplicate training certificates into license.
 
 RESUME TEXT:
 ${text}
