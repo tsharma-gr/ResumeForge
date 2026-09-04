@@ -471,7 +471,6 @@ def fill_resume(template_path, output_path, data):
                 
                 p_reason.paragraph_format.space_before = Pt(8)
                 p_reason.paragraph_format.space_after = Pt(6)
-                
                 bullet_char = "•\t" if is_totaco else "• "
                 run = p_reason.add_run(f"{bullet_char}Reason for leaving - {reason}")
                 set_font(run, 11)
@@ -527,10 +526,70 @@ def fill_resume(template_path, output_path, data):
                     p._element.getparent().remove(p._element)
                     break
 
+        # -----------------------------------------------------------------------
+        # Global set to track ALL text already rendered (prevents cross-section
+        # duplication between qualifications / training / certifications / skills)
+        # -----------------------------------------------------------------------
+        rendered_text_keys = set()
+
+        def _norm_key(text):
+            """Normalised lowercase key for deduplication comparisons.
+            - Strips trailing punctuation so 'qualified' == 'qualified.'
+            - Normalises curly apostrophes/dashes so parallel AI calls match.
+            """
+            import re as _re
+            s = str(text).lower().strip()
+            # Normalise unicode punctuation
+            s = s.replace('\u2018', "'").replace('\u2019', "'").replace('\u201a', "'")\
+                 .replace('\u201b', "'").replace('\u2032', "'").replace('\u2035', "'")
+            s = s.replace('\u2013', '-').replace('\u2014', '-')  # en/em dash
+            # Strip trailing punctuation (period, comma, semicolon etc.)
+            s = s.rstrip('.,;:!?')
+            return _re.sub(r'\s+', ' ', s).strip()
+
+        def _register_dict_item(item):
+            """Register institution and degree from a structured education dict so downstream sections skip them."""
+            if not isinstance(item, dict):
+                return
+            if item.get('institution'):
+                rendered_text_keys.add(_norm_key(item['institution']))
+            if item.get('degree'):
+                rendered_text_keys.add(_norm_key(item['degree']))
+
         # Helper to add a section with bullets or structured objects
         def add_bullet_section(title, items, is_edu=False):
             nonlocal last_element
             if not items: return
+
+            # --- Deduplicate the incoming list before rendering ---
+            deduped_items = []
+            for item in items:
+                if isinstance(item, dict):
+                    # Dedup key = institution name ONLY (not institution+degree).
+                    # The degree text can legitimately differ between parallel AI chunks for the
+                    # SAME institution (e.g. chunk 1 returns short form, chunk 2 returns long form).
+                    # resumeParser.js institution consolidation should have merged them, but we
+                    # apply this as a final safety net in the renderer.
+                    inst_only_key = _norm_key(item.get('institution', ''))
+                    if inst_only_key and inst_only_key in rendered_text_keys:
+                        continue
+                    # Fallback: if no institution, dedup on degree text alone
+                    if not item.get('institution') and item.get('degree'):
+                        if _norm_key(item['degree']) in rendered_text_keys:
+                            continue
+                    deduped_items.append(item)
+                    _register_dict_item(item)
+                    if inst_only_key:
+                        rendered_text_keys.add(inst_only_key)
+                elif isinstance(item, str):
+                    k = _norm_key(item)
+                    if not k or k in rendered_text_keys:
+                        continue
+                    deduped_items.append(item)
+                    rendered_text_keys.add(k)
+
+            if not deduped_items:
+                return
             
             # Header
             p_label = doc.add_paragraph()
@@ -541,8 +600,8 @@ def fill_resume(template_path, output_path, data):
             last_element.addnext(p_label._element)
             last_element = p_label._element
             
-            # Bullets or structured objects
-            if is_edu and all(isinstance(x, str) for x in items):
+            # Sort simple string education items by year
+            if is_edu and all(isinstance(x, str) for x in deduped_items):
                 def get_yr(s):
                     import re
                     try: 
@@ -551,9 +610,9 @@ def fill_resume(template_path, output_path, data):
                             return int(match.group(0))
                         return 9999
                     except: return 9999
-                items.sort(key=get_yr)
+                deduped_items.sort(key=get_yr)
 
-            for item in items:
+            for item in deduped_items:
                 if isinstance(item, dict):
                     inst = item.get('institution', '').strip()
                     dates = item.get('dates', '').strip()
@@ -585,8 +644,14 @@ def fill_resume(template_path, output_path, data):
                         last_element = p_deg._element
 
                     # 3. Sub-details
+                    seen_detail_keys = set()
                     for det in details:
                         if not isinstance(det, str) or not det.strip(): continue
+                        det_key = _norm_key(det)
+                        if det_key in seen_detail_keys:
+                            continue
+                        seen_detail_keys.add(det_key)
+                        rendered_text_keys.add(det_key)
                         p_det = doc.add_paragraph(style='Normal')
                         p_det.paragraph_format.left_indent = Pt(36)
                         p_det.paragraph_format.first_line_indent = Pt(-18)
@@ -597,10 +662,21 @@ def fill_resume(template_path, output_path, data):
                         last_element = p_det._element
 
                     # 4. Descriptive Paragraphs
+                    seen_para_keys = set()
                     for para in paras:
                         if not isinstance(para, str) or not para.strip(): continue
+                        para_key = _norm_key(para)
+                        if para_key in seen_para_keys:
+                            continue
+                        seen_para_keys.add(para_key)
+                        rendered_text_keys.add(para_key)
                         p_para = doc.add_paragraph(para.strip(), style='Normal')
                         p_para.paragraph_format.space_before = Pt(4)
+                        p_para.paragraph_format.space_after = Pt(6)
+                        p_para.paragraph_format.line_spacing = 1.15
+                        for r in p_para.runs: set_font(r, 11)
+                        last_element.addnext(p_para._element)
+                        last_element = p_para._element
                         p_para.paragraph_format.space_after = Pt(6)
                         p_para.paragraph_format.line_spacing = 1.15
                         for r in p_para.runs: set_font(r, 11)
@@ -619,106 +695,9 @@ def fill_resume(template_path, output_path, data):
                     last_element = p_item._element
 
         # Render sections in order
-        if is_totaco:
-            # Consolidate Education, Training, and Certifications for Totaco
-            all_edu_raw = (ed_skills.get('qualifications', []) or []) + \
-                          (ed_skills.get('training', []) or []) + \
-                          (ed_skills.get('certifications', []) or [])
-            
-            all_edu = []
-            import re
-            
-            def extract_and_format_education(item):
-                """Extract year from education item and format it properly"""
-                if isinstance(item, dict):
-                    return item
-                if not item or not isinstance(item, str) or not item.strip():
-                    return None
-                
-                item = item.strip()
-                
-                # Try to find any year in the text (more flexible patterns)
-                year_patterns = [
-                    r'\b(19|20)\d{2}\b',  # Standard years like 1990-2029
-                    r'\b\d{4}\b'          # Any 4-digit number (catch-all)
-                ]
-                
-                year_found = None
-                for pattern in year_patterns:
-                    match = re.search(pattern, item)
-                    if match:
-                        year_found = match.group(0)
-                        break
-                
-                if year_found:
-                    # Remove year from original position and clean up
-                    item_without_year = item.replace(year_found, '').replace('  ', ' ').strip(' -(),')
-                    # Format as "Year - Degree - Institution"
-                    result = f"{year_found} - {item_without_year}"
-                    return result
-                else:
-                    # No year found, return as is
-                    return item
-            
-            # Process all education items
-            processed_items = []
-            for item in all_edu_raw:
-                formatted_item = extract_and_format_education(item)
-                if formatted_item:
-                    processed_items.append(formatted_item)
-            
-            # Sort by year (items without year go to the end)
-            def get_sort_key(item):
-                if isinstance(item, dict):
-                    d_str = item.get('dates', '')
-                    match = re.search(r'\b(19|20)\d{2}\b', d_str)
-                    if match:
-                        try: return int(match.group(0))
-                        except: return 9999
-                    return 9999
-                # Extract year from the beginning of the item string
-                year_match = re.match(r'^(\d{4})', str(item))
-                if year_match:
-                    try:
-                        return int(year_match.group(1))
-                    except:
-                        return 9999
-                return 9999
-            
-            processed_items.sort(key=get_sort_key)
-            
-            # Final formatting for display
-            for item in processed_items:
-                if isinstance(item, dict):
-                    all_edu.append(item)
-                    continue
-                parts = item.split(' - ', 2)  # Split into max 3 parts
-                if len(parts) >= 3:
-                    year = parts[0].strip()
-                    degree = parts[1].strip()
-                    institution = parts[2].strip()
-                    result = f"{year} - {degree} - {institution}"
-                    all_edu.append(result)
-                elif len(parts) == 2:
-                    year_match = re.match(r'^\d{4}', parts[0])
-                    if year_match:
-                        result = f"{parts[0].strip()} - {parts[1].strip()}"
-                        all_edu.append(result)
-                    else:
-                        degree = parts[0].strip()
-                        institution = parts[1].strip()
-                        result = f"{degree} - {institution}"
-                        all_edu.append(result)
-                else:
-                    result = item.strip()
-                    all_edu.append(result)
-
-            add_bullet_section("Education/Qualification", all_edu, is_edu=True)
-        else:
-            add_bullet_section("Education/Qualification", ed_skills.get('qualifications', []), is_edu=True)
-            add_bullet_section("Training", ed_skills.get('training', []))
-            add_bullet_section("Certifications", ed_skills.get('certifications', []))
-
+        add_bullet_section("Education/Qualification", ed_skills.get('qualifications', []), is_edu=True)
+        add_bullet_section("Training", ed_skills.get('training', []))
+        add_bullet_section("Certifications", ed_skills.get('certifications', []))
         add_bullet_section("Skills/Technical Skills", ed_skills.get('technical_skills', []))
         add_bullet_section("Awards", ed_skills.get('awards', []))
         add_bullet_section("License", ed_skills.get('license', []))

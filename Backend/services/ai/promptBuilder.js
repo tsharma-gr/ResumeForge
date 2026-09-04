@@ -35,8 +35,11 @@ INSTRUCTIONS:
 - Do not include markdown formatting.
 - **NAME**: Extract candidate's full name.
 - **LOCATION**: Extract ONLY a SINGLE geographic area: County or Country (e.g., "Berkshire" or "UK"). No city or street address.
-- **EDUCATION SEPARATION**: Extract EACH college, university, or diploma provider as a SEPARATE object in "qualifications". NEVER merge different colleges or diplomas (e.g. "Access to Higher Education Diploma") into the details array of another university. Preserve all course description paragraphs under their respective college object.
-- **LICENSES**: Extract plant operator cards, CPCS, CSCS, NVQ, SMSTS, and professional tickets into "certifications". For "license", extract ONLY official driving licenses (e.g. Full UK Driving License) or official council registration licenses. Do not duplicate training certificates into license.
+- **EDUCATION — THIS IS THE ONLY PROMPT THAT EXTRACTS EDUCATION**: Extract EACH college, university, school, or diploma provider as a SEPARATE object in "qualifications". NEVER merge different institutions into one entry.
+- **MULTIPLE QUALIFICATIONS AT SAME INSTITUTION**: If an institution lists multiple degrees or qualifications (e.g. both a BSc AND an HNC, or multiple A-levels/GCSEs), put the primary degree in "degree" and list ALL other qualifications/degrees/diplomas at that institution as separate strings in "details". NEVER combine multiple qualifications into a single comma-separated string in "degree".
+- **FULL QUALIFICATION TEXT**: Always extract the FULL qualification text verbatim. For example if the CV says "10 GCSE's – (Maths and English) were varying from grades B to E", extract the complete string — do NOT truncate to just "10 GCSE's".
+- **DESCRIPTION PARAGRAPHS**: Any descriptive sentence following a qualification (e.g. subjects studied, grade ranges) belongs in "description_paragraphs" of that institution's object.
+- **LICENSES & CERTIFICATIONS**: Extract plant operator cards, CPCS, CSCS, NVQ, SMSTS, SSSTS, First Aid, and professional tickets into "certifications". NEVER place CPCS or CSCS cards into "qualifications". For "license", extract ONLY official driving licenses (e.g. Full UK Driving License) or official council registration licenses. Do not duplicate training certificates into license.
 
 RESUME TEXT:
 ${text}
@@ -45,7 +48,8 @@ ${text}
 
 const buildWorkHistoryParsingPrompt = (text) => {
   return `
-You are an expert ATS-optimized resume parser. Extract work history, education, and licenses from the provided text.
+You are an expert ATS-optimized resume parser. Extract ONLY work history from the provided text.
+Do NOT extract education, skills, certifications, or licenses — those are handled by a separate specialised prompt.
 
 SCHEMA:
 {
@@ -69,23 +73,7 @@ SCHEMA:
       "projects": ["string"],
       "reason_for_leaving": "string"
     }
-  ],
-  "education_and_skills": {
-    "qualifications": [
-      {
-        "institution": "string",
-        "dates": "string",
-        "degree": "string",
-        "details": ["string"],
-        "description_paragraphs": ["string"]
-      }
-    ],
-    "training": ["string"],
-    "certifications": ["string"],
-    "awards": ["string"],
-    "technical_skills": ["string"],
-    "license": ["string"]
-  }
+  ]
 }
 
 INSTRUCTIONS:
@@ -93,13 +81,14 @@ INSTRUCTIONS:
 - Do not include markdown formatting.
 - **VERBATIM EXTRACTION**: Copy-paste paragraphs and bullet points VERBATIM without summarizing.
 - **ROLE**: Short job title (1-5 words).
-- **DATE FORMAT**: "MMM-YYYY" (e.g., Jan-2024).
-- **EDUCATION SEPARATION**: Extract EACH college, university, or diploma as a SEPARATE object in "qualifications". Do NOT combine different colleges into one entry. Preserve all descriptive course paragraphs under their respective institution.
+- **DATE FORMAT**: Preserve the date format exactly as written in the CV (e.g., "March 2019", "Jan-2024", "2019 – Present").
+- **SKIP NON-WORK SECTIONS**: If you encounter Education, Skills, Certifications, Hobbies, or Interests sections, skip them entirely — output empty arrays for employment_summary and comprehensive_work_history if the chunk contains no work history.
 
 RESUME TEXT:
 ${text}
 `;
 };
+
 
 const buildResumeParsingPrompt = (text) => {
   return `

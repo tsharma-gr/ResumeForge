@@ -77,14 +77,11 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
       merged.employment_summary.push(...result.employment_summary);
     }
 
-    // Merge education and skills found in work history chunks
-    if (result.education_and_skills) {
-      for (const field of arrayFields) {
-        if (Array.isArray(result.education_and_skills[field])) {
-          edSkills[field].push(...result.education_and_skills[field]);
-        }
-      }
-    }
+    // NOTE: education_and_skills is intentionally NOT merged from work history chunks.
+    // Education, skills, certifications and licenses are extracted exclusively by the
+    // header prompt (which receives the top+bottom of the full CV text). Merging
+    // education from work history chunks was the root cause of duplicate / partial
+    // education entries appearing in the final output.
   }
 
   // Deduplicate employment summary based on company name (and filter entries without dates)
@@ -108,41 +105,82 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
     merged.employment_summary = uniqueSummary.slice(0, 5);
   }
   
-  // Helper for semantic qualification deduplication (splits compound titles & deduplicates word-order variations)
+  // Normalise smart-quotes / curly apostrophes so parallel AI calls produce the same key
+  const normaliseText = (str) => String(str || '')
+    .replace(/[\u2018\u2019\u201a\u201b\u2032\u2035]/g, "'")  // curly single quotes → straight
+    .replace(/[\u201c\u201d\u201e\u201f\u2033\u2036]/g, '"')  // curly double quotes → straight
+    .replace(/\u2013|\u2014/g, '-')  // en-dash / em-dash → hyphen
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Helper for semantic qualification deduplication (splits compound titles & deduplicates word-order
+  // variations). Also detects subset/superset: if one string is fully contained in another, only the
+  // longer (more detailed) string survives.
   const deduplicateQuals = (rawList) => {
-    const result = [];
-    const seenKeys = new Set();
+    // Pass 1: collect all normalised strings
+    const candidates = [];
+    const seen = new Set();
 
-    const processItem = (str) => {
+    const collect = (str) => {
       if (!str || typeof str !== 'string') return;
-      const cleanStr = str.strip ? str.strip() : String(str).trim();
-      if (!cleanStr) return;
+      const clean = normaliseText(str);
+      if (!clean) return;
 
-      // Handle compound strings like "Degree A; Degree B" or "Degree A \n Degree B"
-      if (cleanStr.includes(';') || cleanStr.includes('\n')) {
-        cleanStr.split(/[;\n]/).forEach(part => processItem(part));
+      // Split compound entries (semicolons, newlines, or commas separating distinct qualification titles)
+      if (clean.includes(';') || clean.includes('\n')) {
+        clean.split(/[;\n]/).forEach(part => collect(part));
         return;
       }
 
-      // Create normalized key (sorted significant words to catch reordered strings like "First Class BSc..." vs "BSc... First Class")
-      const normWords = cleanStr.toLowerCase()
-        .replace(/[^a-z0-9]/g, ' ')
-        .split(/\s+/)
-        .filter(w => w.length > 1 && !['in', 'of', 'and', 'the', 'a', 'an', 'for', 'with', 'at'].includes(w))
-        .sort();
+      if (clean.includes(',')) {
+        const parts = clean.split(',');
+        const qualRegex = /\b(bsc|msc|ba|ma|hnc|hnd|diploma|degree|gcse|a-level|nvq|access to|btec|foundation|certificate)\b/i;
+        let countQualParts = 0;
+        parts.forEach(p => { if (qualRegex.test(p)) countQualParts++; });
+        if (countQualParts >= 2) {
+          parts.forEach(part => collect(part));
+          return;
+        }
+      }
 
-      const keyExact = cleanStr.toLowerCase().replace(/\s+/g, ' ');
-      const keyWords = normWords.join(' ');
-
-      if (keyExact && !seenKeys.has(keyExact) && (!keyWords || !seenKeys.has(keyWords))) {
-        seenKeys.add(keyExact);
-        if (keyWords) seenKeys.add(keyWords);
-        result.push(cleanStr);
+      const keyExact = clean.toLowerCase().replace(/[.,;:!?]+$/, ''); // strip trailing punct
+      if (!seen.has(keyExact)) {
+        seen.add(keyExact);
+        candidates.push(clean);
       }
     };
 
-    rawList.forEach(item => processItem(item));
-    return result;
+    rawList.forEach(item => collect(item));
+
+    // Pass 2: remove items whose normalised text is a prefix/substring of a longer sibling
+    // e.g. "10 GCSE's" is a prefix of "10 GCSE's – (Maths and English)..." → drop shorter
+    const result = candidates.filter((item, i) => {
+      const itemLow = item.toLowerCase();
+      return !candidates.some((other, j) => {
+        if (i === j) return false;
+        const otherLow = other.toLowerCase();
+        // If the other string starts with (or contains as a leading substring) this item,
+        // and is meaningfully longer, suppress this shorter version
+        return otherLow.startsWith(itemLow) && other.length > item.length + 3;
+      });
+    });
+
+    // Pass 3: word-order dedup (catches "BSc Quantity Surveying" vs "Quantity Surveying BSc")
+    const finalResult = [];
+    const seenWordKeys = new Set();
+    for (const item of result) {
+      const normWords = item.toLowerCase()
+        .replace(/[^a-z0-9]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 1 && !['in', 'of', 'and', 'the', 'a', 'an', 'for', 'with', 'at'].includes(w))
+        .sort()
+        .join(' ');
+      if (!seenWordKeys.has(normWords)) {
+        seenWordKeys.add(normWords);
+        finalResult.push(item);
+      }
+    }
+    return finalResult;
   };
 
   // 1. Smart Institution Consolidation: Merge qualifications sharing the same institution name
@@ -152,7 +190,8 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
 
     for (const item of edSkills.qualifications) {
       if (typeof item === 'object' && item !== null && item.institution) {
-        const normInst = item.institution.trim().toLowerCase();
+        // Use normaliseText so curly/straight apostrophes don't create phantom duplicates
+        const normInst = normaliseText(item.institution).toLowerCase();
         if (!instMap.has(normInst)) {
           instMap.set(normInst, {
             institution: item.institution.trim(),
@@ -205,14 +244,23 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
   }
 
   // 2. Deduplicate individual education and skills arrays
+  // For dicts: key on institution+dates only (degree may legitimately differ between chunks).
+  // For strings: normalise unicode + strip trailing punctuation before keying.
   for (const field of arrayFields) {
     if (edSkills[field].length > 0) {
       const seen = new Set();
       const uniqueItems = [];
       for (const item of edSkills[field]) {
-        let key = typeof item === 'object' && item !== null 
-          ? `${item.institution || ''}-${item.degree || ''}-${item.dates || ''}`.trim()
-          : String(item).trim();
+        let key;
+        if (typeof item === 'object' && item !== null) {
+          // Use institution + dates as the identity key (NOT degree, which varies between AI chunks)
+          const instNorm = normaliseText(item.institution || '').toLowerCase();
+          const datesNorm = normaliseText(item.dates || '').toLowerCase();
+          key = `${instNorm}||${datesNorm}` || JSON.stringify(item);
+        } else {
+          // For strings: normalise unicode and strip trailing punctuation
+          key = normaliseText(String(item)).toLowerCase().replace(/[.,;:!?]+$/, '');
+        }
         if (!key) key = JSON.stringify(item);
         if (!seen.has(key)) {
           seen.add(key);
@@ -228,10 +276,10 @@ const mergeParsedResults = (headerResult, workHistoryResults) => {
   const extractTexts = (items) => {
     for (const item of items) {
       if (typeof item === 'string') {
-        existingTexts.add(item.trim().toLowerCase());
+        existingTexts.add(normaliseText(item).toLowerCase().replace(/[.,;:!?]+$/, ''));
       } else if (typeof item === 'object' && item !== null) {
-        if (item.degree) existingTexts.add(item.degree.trim().toLowerCase());
-        if (Array.isArray(item.details)) item.details.forEach(d => existingTexts.add(String(d).trim().toLowerCase()));
+        if (item.degree) existingTexts.add(normaliseText(item.degree).toLowerCase().replace(/[.,;:!?]+$/, ''));
+        if (Array.isArray(item.details)) item.details.forEach(d => existingTexts.add(normaliseText(String(d)).toLowerCase().replace(/[.,;:!?]+$/, '')));
       }
     }
   };
@@ -261,10 +309,13 @@ const parseResume = async (extractedText, onProgress = () => {}) => {
   onProgress('Starting high-speed parallel resume extraction...');
   console.log('Starting high-speed parallel resume extraction...');
 
-  // 1. Prepare Stage 1 Header Prompt (Top 4,500 chars AND Bottom 4,500 chars to catch Education/Licenses at end)
+  // 1. Prepare Stage 1 Header Prompt.
+  // Sample the top 6,000 chars AND the bottom 6,000 chars of the CV so that education
+  // sections at the end of long documents are always captured by the header prompt.
+  // Education, skills and certifications are extracted ONLY here — not in work history chunks.
   let headerSample = extractedText;
-  if (extractedText.length > 9000) {
-    headerSample = extractedText.slice(0, 4500) + "\n\n--- END OF CV SECTIONS ---\n\n" + extractedText.slice(-4500);
+  if (extractedText.length > 12000) {
+    headerSample = extractedText.slice(0, 6000) + "\n\n--- DOCUMENT CONTINUES / END OF CV SECTIONS ---\n\n" + extractedText.slice(-6000);
   }
   const headerPrompt = buildHeaderParsingPrompt(headerSample);
 
