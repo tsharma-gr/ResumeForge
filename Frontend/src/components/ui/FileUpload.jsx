@@ -206,14 +206,20 @@ const FileUpload = ({ onUpload, loading, error }) => {
                     
                     const es = new EventSource(`${API_BASE}/resume/progress/${jobId}`);
                     es.onmessage = (e) => {
-                      const data = JSON.parse(e.data);
-                      if (data.done) {
-                        es.close();
-                      } else if (data.message) {
-                        setProgressLogs((prev) => [...prev, { time: getTime(), text: data.message }]);
+                      try {
+                        const data = JSON.parse(e.data);
+                        if (data.done) {
+                          es.close();
+                        } else if (data.message) {
+                          setProgressLogs((prev) => [...prev, { time: getTime(), text: data.message }]);
+                        }
+                      } catch (err) {
+                        console.error('SSE parse error:', err);
                       }
                     };
-                    es.onerror = () => es.close();
+                    es.onerror = (err) => {
+                      console.warn('SSE stream waiting or retrying...', err);
+                    };
                     onUpload(file, jobId);
                   }} 
                   loading={loading}
